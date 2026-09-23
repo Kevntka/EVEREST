@@ -1,0 +1,68 @@
+<div class="register-container">
+  <div class="register-header">
+    <h1>Participant Registration</h1>
+    <p>Join and Start Exploring</p>
+  </div>
+
+  <form (ngSubmit)="onSubmit()" #participantForm="ngForm">
+    <div class="form-group">
+      <input 
+        type="email" 
+        id="email" 
+        name="email" 
+        [(ngModel)]="email"
+        placeholder="Email"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="tel" 
+        id="contactNumber" 
+        name="contactNumber" 
+        [(ngModel)]="contactNumber"
+        placeholder="Contact Number"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="password" 
+        id="password" 
+        name="password" 
+        [(ngModel)]="password"
+        placeholder="Enter Password"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="password" 
+        id="confirmPassword" 
+        name="confirmPassword" 
+        [(ngModel)]="confirmPassword"
+        placeholder="Re-enter Password"
+        required 
+      >
+    </div>
+
+    <div class="success-message" *ngIf="successMessage">
+      {{ successMessage }}
+    </div>
+
+    <div class="error-message" *ngIf="errorMessage">
+      {{ errorMessage }}
+    </div>
+
+    <button type="submit" class="btn-register" [disabled]="!participantForm.form.valid">
+      Register
+    </button>
+  </form>
+
+  <div class="back-link">
+    <a (click)="goBack()">Back</a>
+  </div>
+</div>

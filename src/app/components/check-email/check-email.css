@@ -1,0 +1,99 @@
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #a8827d;
+  background-image: url('/assets/images/events.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+:host::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 0;
+}
+
+.check-email-container {
+  background: white;
+  padding: 40px 50px;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.check-email-header {
+  margin-bottom: 30px;
+}
+
+.check-email-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.check-email-header p {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.check-email-header .instruction {
+  font-weight: 500;
+  color: #333;
+}
+
+.btn-back-login {
+  width: 100%;
+  padding: 14px;
+  background-color: #ff5555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-bottom: 15px;
+}
+
+.btn-back-login:hover {
+  background-color: #ff3333;
+}
+
+.try-another {
+  text-align: center;
+  font-size: 14px;
+}
+
+.try-another a {
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.try-another a:hover {
+  color: #ff5555;
+}
+
+@media (max-width: 480px) {
+  .check-email-container {
+    padding: 30px 25px;
+    margin: 20px;
+  }
+}

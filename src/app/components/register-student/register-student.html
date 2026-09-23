@@ -1,0 +1,68 @@
+<div class="register-container">
+  <div class="register-header">
+    <h1>Student Registration</h1>
+    <p>Complete Your Profile</p>
+  </div>
+
+  <form (ngSubmit)="onSubmit()" #studentForm="ngForm">
+    <div class="form-group">
+      <input 
+        type="email" 
+        id="gsuite" 
+        name="gsuite" 
+        [(ngModel)]="gsuite"
+        placeholder="Gsuite"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="text" 
+        id="department" 
+        name="department" 
+        [(ngModel)]="department"
+        placeholder="Department"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="password" 
+        id="password" 
+        name="password" 
+        [(ngModel)]="password"
+        placeholder="Enter Password"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <input 
+        type="password" 
+        id="confirmPassword" 
+        name="confirmPassword" 
+        [(ngModel)]="confirmPassword"
+        placeholder="Re-enter Password"
+        required 
+      >
+    </div>
+
+    <div class="success-message" *ngIf="successMessage">
+      {{ successMessage }}
+    </div>
+
+    <div class="error-message" *ngIf="errorMessage">
+      {{ errorMessage }}
+    </div>
+
+    <button type="submit" class="btn-register" [disabled]="!studentForm.form.valid">
+      Register
+    </button>
+  </form>
+
+  <div class="back-link">
+    <a (click)="goBack()">← Back</a>
+  </div>
+</div>
