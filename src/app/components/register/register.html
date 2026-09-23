@@ -1,0 +1,46 @@
+<div class="register-container">
+  <div class="register-header">
+    <h1>Create Account</h1>
+    <p>Join and Start Exploring</p>
+  </div>
+
+  <form (ngSubmit)="onSubmit()" #registerForm="ngForm">
+    <div class="form-group">
+      <input 
+        type="text" 
+        id="fullName" 
+        name="fullName" 
+        [(ngModel)]="fullName"
+        placeholder="Full Name"
+        required 
+      >
+    </div>
+
+    <div class="form-group">
+      <select 
+        id="role" 
+        name="role" 
+        [(ngModel)]="role"
+        required
+      >
+        <option value="" disabled selected>Role</option>
+        <option *ngFor="let roleOption of roles" [value]="roleOption">
+          {{ roleOption }}
+        </option>
+      </select>
+    </div>
+
+    <div class="error-message" *ngIf="errorMessage">
+      {{ errorMessage }}
+    </div>
+
+    <button type="submit" class="btn-continue" [disabled]="!registerForm.form.valid">
+      Continue
+    </button>
+  </form>
+
+  <div class="login-link">
+    Already have an account? 
+    <a (click)="goToLogin()">Login</a>
+  </div>
+</div>
