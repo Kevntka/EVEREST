@@ -1,51 +1,41 @@
-"""
-EVEREST Event Registration System - Backend API
-FastAPI application with CORS enabled for Angular frontend
-"""
-
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import router
-import os
+from fastapi.staticfiles import StaticFiles
+# from api.routes import router as memory_router  # In-memory routes (not used anymore)
+from api.routes_db import router as db_router  # Database routes (ACTIVE)
+from pathlib import Path
 
-# Initialize FastAPI app
 app = FastAPI(
-    title="EVEREST API",
-    description="Event Registration System API",
-    version="1.0.0"
+    title="EVEREST Event Registration API",
+    description="Backend API for event registration system",
+    version="2.0.0"
 )
 
-# Configure CORS for Angular frontend
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-# Include API routes
-app.include_router(router)
+# Include database routes (PostgreSQL) - MUST BE BEFORE MOUNTS
+app.include_router(db_router, prefix="/api")
 
-# Configure paths
-FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "..", "frontend")
-ASSETS_PATH = os.path.join(FRONTEND_PATH, "assets")
+# Create uploads directory if it doesn't exist
+Path("uploads/events").mkdir(parents=True, exist_ok=True)
 
-# Mount static files
-app.mount("/assets", StaticFiles(directory=ASSETS_PATH), name="assets")
-
+# Mount static files for uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/")
 def root():
-    """Serve main login page"""
-    login_file = os.path.join(FRONTEND_PATH, "login.html")
-    return FileResponse(login_file)
-
-
-@app.get("/login")
-def login_page():
-    """Serve login page"""
-    login_file = os.path.join(FRONTEND_PATH, "login.html")
-    return FileResponse(login_file)
+    """Root endpoint"""
+    return {
+        "message": "EVEREST Event Registration API",
+        "version": "2.0.0",
+        "mode": "PostgreSQL Database",
+        "status": "running"
+    }
