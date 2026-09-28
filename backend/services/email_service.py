@@ -19,6 +19,9 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "cxfd uohd wcqg jyhd")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 FROM_NAME = os.getenv("FROM_NAME", "EVEREST Event System")
 
+# Email mode - can disable for development
+EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
+
 
 async def send_organizer_credentials(
     to_email: str,
@@ -29,6 +32,12 @@ async def send_organizer_credentials(
     """
     Send email to new organizer with login credentials
     """
+    
+    # Check if email is enabled
+    if not EMAIL_ENABLED:
+        print(f"      ├─ ⚠️  EMAIL DISABLED (development mode)")
+        print(f"      └─ Skipping email to {to_email}")
+        return False  # Return False to indicate email was not sent
     
     # Create message
     message = MIMEMultipart("alternative")
@@ -108,9 +117,13 @@ EVEREST Admin Team
     message.attach(part1)
     message.attach(part2)
     
-    # Send email
+    # Send email with proper SMTP flow logging
     try:
+        print(f"      ├─ Connecting to {SMTP_HOST}:{SMTP_PORT}")
+        
         if SMTP_USE_SSL:
+            print(f"      ├─ Using SSL/TLS connection")
+            print(f"      ├─ Authenticating as {SMTP_USER}")
             # Use SSL (port 465)
             await aiosmtplib.send(
                 message,
@@ -121,6 +134,8 @@ EVEREST Admin Team
                 password=SMTP_PASSWORD,
             )
         else:
+            print(f"      ├─ Using STARTTLS connection")
+            print(f"      ├─ Authenticating as {SMTP_USER}")
             # Use STARTTLS (port 587)
             await aiosmtplib.send(
                 message,
@@ -130,12 +145,13 @@ EVEREST Admin Team
                 username=SMTP_USER,
                 password=SMTP_PASSWORD,
             )
-        print(f"✅ Email sent successfully to {to_email}")
+        
+        print(f"      ├─ Email accepted by SMTP server")
+        print(f"      └─ ✅ Email sent successfully to {to_email}")
         return True
     except Exception as e:
-        print(f"❌ Failed to send email to {to_email}: {e}")
-        # For development, we'll just log and continue
-        # In production, you might want to handle this differently
+        print(f"      └─ ❌ SMTP Error: {e}")
+        print(f"         Error type: {type(e).__name__}")
         return False
 
 

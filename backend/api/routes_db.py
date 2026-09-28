@@ -12,6 +12,7 @@ from models.auth import set_user_password, get_user_password
 from auth.jwt_handler import create_access_token, get_current_user, require_role, verify_password as verify_bcrypt_password
 from datetime import timedelta
 from services.recaptcha_service import verify_recaptcha, get_error_message
+from auth.csrf_protection import generate_csrf_token, set_csrf_cookie, validate_csrf_form
 
 router = APIRouter()
 
@@ -21,6 +22,39 @@ def test_api():
     """Test endpoint to verify API is working"""
     return {"message": "EVEREST API with PostgreSQL is okay"}
 
+
+
+
+@router.get("/csrf-token")
+async def get_csrf_token(request: Request):
+    """
+    Get or generate CSRF token
+    This endpoint is called when the app starts to get a CSRF token
+    """
+    from auth.csrf_protection import get_csrf_token_from_cookie
+    
+    # Check if token already exists in cookie
+    existing_token = get_csrf_token_from_cookie(request)
+    
+    if existing_token:
+        # Return existing token
+        return JSONResponse(
+            status_code=200,
+            content={"csrf_token": existing_token}
+        )
+    
+    # Generate new token
+    csrf_token = generate_csrf_token()
+    
+    response = JSONResponse(
+        status_code=200,
+        content={"csrf_token": csrf_token}
+    )
+    
+    # Set CSRF cookie
+    set_csrf_cookie(response, csrf_token)
+    
+    return response
 
 @router.post("/login")
 async def login(
@@ -255,86 +289,158 @@ async def create_organizer(
     """
     Create organizer (admin only)
     """
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Generate random password
-    import random
-    import string
-    password_chars = "1234567890qwertyuiopasdfghjklzxcvbnm!@#$%^&*_"
-    random_password = ''.join(random.choice(password_chars) for _ in range(12))
-    
-    # Hash password
-    from auth.jwt_handler import hash_password
-    hashed_password = hash_password(random_password)
-    
-    # Get or create department
-    dept = db.query(Department).filter(Department.department_name == department).first()
-    if not dept:
-        dept = Department(department_name=department)
-        db.add(dept)
-        db.flush()
-    
-    # Create user
-    new_user = User(
-        full_name=full_name,
-        email=email,
-        password=hashed_password,
-        role='organizer'
-    )
-    db.add(new_user)
-    db.flush()
-    
-    # Create user_role entry for additional info
-    user_role = UserRole(
-        user_id=new_user.id,
-        role_type='organizer',
-        department_id=dept.id,
-        employment_id=employment_id,
-        contact_number=contact_number
-    )
-    db.add(user_role)
-    db.commit()
-    
-    # Send email with credentials
-    from services.email_service import send_organizer_credentials
-    email_sent = False
     try:
-        await send_organizer_credentials(
-            to_email=email,
-            organizer_name=full_name,
-            employment_id=employment_id,
-            password=random_password  # Send the random password
+        print(f"\n🔧 Creating organizer: {full_name} ({email})")
+        
+        # Check if email already exists
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Generate random password
+        import random
+        import string
+        password_chars = "1234567890qwertyuiopasdfghjklzxcvbnm!@#$%^&*_"
+        random_password = ''.join(random.choice(password_chars) for _ in range(12))
+        
+        # Hash password
+        from auth.jwt_handler import hash_password
+        hashed_password = hash_password(random_password)
+        
+        # Get or create department
+        dept = db.query(Department).filter(Department.department_name == department).first()
+        if not dept:
+            dept = Department(department_name=department)
+            db.add(dept)
+            db.flush()
+        
+        # Create user
+        new_user = User(
+            full_name=full_name,
+            email=email,
+            password=hashed_password,
+            role='organizer'
         )
-        email_sent = True
-        email_message = "Email sent successfully with login credentials"
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        email_message = f"Account created but email failed to send. Please provide credentials manually."
+        db.add(new_user)
+        db.flush()
+        
+        # Create user_role entry for additional info
+        user_role = UserRole(
+            user_id=new_user.id,
+            role_type='organizer',
+            department_id=dept.id,
+            employment_id=employment_id,
+            contact_number=contact_number
+        )
+        db.add(user_role)
+        db.commit()
+        
+        # Send email with credentials and WAIT for SMTP confirmation
+        from services.email_service import send_organizer_credentials
+        
+        print(f"\n📧 Sending credentials to {email}...")
+        print(f"   ├─ Connecting to SMTP server...")
+        print(f"   ├─ Authenticating...")
+        print(f"   ├─ Sending email...")
+        
+        email_sent = False
+        email_message = ""
+        
+        # TEMPORARY: Skip email for testing (remove this later)
+        SKIP_EMAIL = True  # Set to False to enable email sending
+        
+        if SKIP_EMAIL:
+            print(f"   └─ ⚠️ EMAIL SKIPPED (testing mode)")
+            email_sent = False
+            email_message = "Email skipped for testing"
+        else:
+            try:
+                # IMPORTANT: Check the return value from SMTP confirmation
+                email_sent = await send_organizer_credentials(
+                    to_email=email,
+                    organizer_name=full_name,
+                    employment_id=employment_id,
+                    password=random_password  # Send the random password
+                )
+                
+                if email_sent:
+                    print(f"   └─ ✅ SMTP confirmed email delivery")
+                    email_message = "Credentials sent via email"
+                else:
+                    print(f"   └─ ⚠️ Email sending failed (no exception but returned False)")
+                    email_message = "Email failed to send. Please share credentials manually."
+                    
+            except Exception as e:
+                print(f"   └─ ❌ Error: {e}")
+                email_sent = False
+                email_message = f"Email failed: {str(e)}. Please share credentials manually."
+        
+        # Return different response based on email success
+        if email_sent:
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "success": True,
+                    "message": f"Organizer created successfully and credentials sent via email",
+                    "organizer": {
+                        "id": new_user.id,
+                        "employment_id": employment_id,
+                        "full_name": full_name,
+                        "department": department,
+                        "email": email,
+                        "contact_number": contact_number
+                    },
+                    "credentials": {
+                        "email": email,
+                        "password": random_password,
+                        "note": "Credentials have been sent to the organizer's email"
+                    },
+                    "email_sent": True
+                }
+            )
+        else:
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "success": True,
+                    "message": f"Organizer created but email could not be sent",
+                    "organizer": {
+                        "id": new_user.id,
+                        "employment_id": employment_id,
+                        "full_name": full_name,
+                        "department": department,
+                        "email": email,
+                        "contact_number": contact_number
+                    },
+                    "credentials": {
+                        "email": email,
+                        "password": random_password,
+                        "note": f"{email_message}"
+                    },
+                    "email_sent": False
+                }
+            )
     
-    return JSONResponse(
-        status_code=201,
-        content={
-            "success": True,
-            "message": f"Organizer created successfully. {email_message}",
-            "organizer": {
-                "id": new_user.id,
-                "employment_id": employment_id,
-                "full_name": full_name,
-                "department": department,
-                "email": email,
-                "contact_number": contact_number
-            },
-            "credentials": {
-                "email": email,
-                "password": random_password,
-                "note": "Random secure password generated. Email sent to organizer."
-            },
-            "email_sent": email_sent
-        }
-    )
+    except HTTPException as http_ex:
+        # Re-raise HTTP exceptions (like 400 for duplicate email)
+        print(f"❌ HTTP Exception: {http_ex.detail}")
+        raise http_ex
+    
+    except Exception as e:
+        # Catch all other exceptions
+        print(f"❌ UNEXPECTED ERROR creating organizer:")
+        print(f"   Error: {e}")
+        print(f"   Type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        
+        # Rollback database changes
+        db.rollback()
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
 
 
 @router.get("/organizers")
@@ -342,29 +448,49 @@ def get_organizers(db: Session = Depends(get_db)):
     """
     Get all organizers
     """
-    # Get all users with organizer role
-    organizers = db.query(User, UserRole, Department).outerjoin(
-        UserRole, User.id == UserRole.user_id
-    ).outerjoin(
-        Department, UserRole.department_id == Department.id
-    ).filter(User.role == 'organizer').all()
+    try:
+        print("\n🔍 GET /organizers - Fetching organizers from database...")
+        
+        # Get all users with organizer role
+        organizers = db.query(User, UserRole, Department).outerjoin(
+            UserRole, User.id == UserRole.user_id
+        ).outerjoin(
+            Department, UserRole.department_id == Department.id
+        ).filter(User.role == 'organizer').all()
+        
+        print(f"   Found {len(organizers)} organizers")
+        
+        result = []
+        for user, user_role, dept in organizers:
+            result.append({
+                "id": user.id,
+                "employment_id": user_role.employment_id if user_role else f"EMP{user.id:03d}",
+                "full_name": user.full_name,
+                "department": dept.department_name if dept else "N/A",
+                "email": user.email,
+                "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
+            })
+        
+        print(f"   ✅ Returning {len(result)} organizers")
+        
+        return {
+            "success": True,
+            "count": len(result),
+            "organizers": result
+        }
     
-    result = []
-    for user, user_role, dept in organizers:
-        result.append({
-            "id": user.id,
-            "employment_id": user_role.employment_id if user_role else f"EMP{user.id:03d}",
-            "full_name": user.full_name,
-            "department": dept.department_name if dept else "N/A",
-            "email": user.email,
-            "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
-        })
-    
-    return {
-        "success": True,
-        "count": len(result),
-        "organizers": result
-    }
+    except Exception as e:
+        print(f"   ❌ Error fetching organizers: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return empty list instead of crashing
+        return {
+            "success": True,
+            "count": 0,
+            "organizers": [],
+            "error": str(e)
+        }
 
 
 @router.delete("/organizers/{organizer_id}")

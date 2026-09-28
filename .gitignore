@@ -86,3 +86,22 @@ frontend/event-registration/node_modules/
 frontend/event-registration/dist/
 frontend/event-registration/.angular/
 frontend/event-registration/coverage/
+
+# Test files and scripts (development only)
+backend/test_*.py
+backend/clear_users*.py
+backend/fix_*.py
+backend/fix_*.sql
+
+# Utility/setup scripts (comment out if you want to commit them)
+# start-all.bat
+# backend/check_*.py
+# backend/view_*.py
+# backend/import_sql.py
+# backend/setup_everything.py
+
+# Keep documentation (these are important)
+# backend/ORGANIZER_SMTP_FLOW.md is NOT ignored
+
+# Keep auth files (these are production code)
+# backend/auth/*.py files are NOT ignored

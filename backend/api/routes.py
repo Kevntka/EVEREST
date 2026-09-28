@@ -284,8 +284,17 @@ async def create_organizer(
     contact_number: str = Form(...)
 ):
     """
-    Create a new organizer
-    Adds organizer to in-memory storage and creates login credentials
+    Create a new organizer with proper SMTP flow
+    
+    Flow:
+    1. Validate organizer data
+    2. Create organizer account
+    3. Generate random password
+    4. Connect to SMTP server
+    5. Authenticate with SMTP credentials
+    6. Send email to organizer
+    7. Wait for SMTP confirmation
+    8. Return success only if email was sent
     """
     # Check if email already exists
     if email in DUMMY_USERS:
@@ -308,9 +317,10 @@ async def create_organizer(
                 }
             )
     
-    # Generate default password (employment_id)
+    # Step 1: Generate default password (employment_id)
     default_password = employment_id
     
+    # Step 2: Create organizer record
     organizer = {
         "id": len(DUMMY_ORGANIZERS) + 1,
         "employment_id": employment_id,
@@ -334,33 +344,71 @@ async def create_organizer(
         "id": organizer["id"]
     }
     
-    # Send email with credentials (async, don't wait for it)
-    import asyncio
+    # Step 3-7: Send email with credentials and WAIT for SMTP confirmation
+    print(f"\n📧 Sending credentials to {email}...")
+    print(f"   ├─ Connecting to SMTP server...")
+    print(f"   ├─ Authenticating...")
+    print(f"   ├─ Sending email...")
+    
     try:
-        asyncio.create_task(send_organizer_credentials(
+        # IMPORTANT: await the email sending to ensure SMTP confirmation
+        email_sent = await send_organizer_credentials(
             to_email=email,
             organizer_name=full_name,
             employment_id=employment_id,
             password=default_password
-        ))
-        email_sent = True
+        )
+        
+        if email_sent:
+            print(f"   └─ ✅ SMTP confirmed email delivery")
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "success": True,
+                    "message": "Organizer created successfully and credentials sent via email",
+                    "organizer": organizer,
+                    "email_sent": True,
+                    "credentials": {
+                        "email": email,
+                        "password": default_password,
+                        "note": "Credentials have been sent to the organizer's email"
+                    }
+                }
+            )
+        else:
+            # Email failed but organizer was created
+            print(f"   └─ ⚠️ Email sending failed")
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "success": True,
+                    "message": "Organizer created but email could not be sent",
+                    "organizer": organizer,
+                    "email_sent": False,
+                    "credentials": {
+                        "email": email,
+                        "password": default_password,
+                        "note": "Email sending failed. Please share credentials manually."
+                    }
+                }
+            )
     except Exception as e:
-        print(f"Email sending failed: {e}")
-        email_sent = False
-    
-    return JSONResponse(
-        status_code=201,
-        content={
-            "success": True,
-            "message": "Organizer created successfully" + (" and email sent" if email_sent else ""),
-            "organizer": organizer,
-            "credentials": {
-                "email": email,
-                "password": default_password,
-                "note": "Default password is the employment ID"
+        print(f"   └─ ❌ Error: {e}")
+        # Organizer was created but email failed
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": f"Organizer created but email failed: {str(e)}",
+                "organizer": organizer,
+                "email_sent": False,
+                "credentials": {
+                    "email": email,
+                    "password": default_password,
+                    "note": "Email sending failed. Please share credentials manually."
+                }
             }
-        }
-    )
+        )
 
 
 @router.get("/api/organizers")
