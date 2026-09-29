@@ -29,22 +29,22 @@
       >
     </div>
 
+    <!-- Google reCAPTCHA v2 -->
     <div class="captcha-container">
-      <input 
-        type="checkbox" 
-        id="captcha" 
-        name="captcha" 
-        [(ngModel)]="captchaChecked"
-        required
-      >
-      <label for="captcha">I'm not a robot</label>
+      <div 
+        class="g-recaptcha" 
+        [attr.data-sitekey]="recaptchaSiteKey"
+        (load)="onRecaptchaLoad()"
+      ></div>
     </div>
 
     <div class="error-message" *ngIf="errorMessage">
       {{ errorMessage }}
     </div>
 
-    <button type="submit" class="btn-login" [disabled]="!loginForm.form.valid">Log In</button>
+    <button type="submit" class="btn-login" [disabled]="!loginForm.form.valid || isSubmitting">
+      {{ isSubmitting ? 'Logging in...' : 'Log In' }}
+    </button>
   </form>
 
   <button type="button" class="btn-create" routerLink="/register">
