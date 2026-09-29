@@ -105,3 +105,4 @@ backend/fix_*.sql
 
 # Keep auth files (these are production code)
 # backend/auth/*.py files are NOT ignored
+.angular/
