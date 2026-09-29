@@ -51,6 +51,10 @@ CREATE TABLE events (
     capacity INTEGER,
     status VARCHAR(50) DEFAULT 'open' CHECK (status IN ('open', 'closed', 'cancelled')),
     cover_photo TEXT,
+    cover_photo_data BYTEA,
+    cover_photo_type VARCHAR(100),
+    department VARCHAR(150),
+    about_event TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

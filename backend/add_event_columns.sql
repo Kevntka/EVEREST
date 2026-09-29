@@ -18,6 +18,14 @@ BEGIN
     END IF;
 END $$;
 
+-- Add department and about_event columns (shown on the event details page)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS department VARCHAR(150);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS about_event TEXT;
+
+-- Cover photo image bytes live in the database (served by GET /api/events/{id}/cover)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_data BYTEA;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_type VARCHAR(100);
+
 -- Rename columns if they have different names
 DO $$ 
 BEGIN

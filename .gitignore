@@ -93,12 +93,9 @@ backend/clear_users*.py
 backend/fix_*.py
 backend/fix_*.sql
 
-# Utility/setup scripts (comment out if you want to commit them)
-# start-all.bat
-# backend/check_*.py
-# backend/view_*.py
-# backend/import_sql.py
-# backend/setup_everything.py
+# Utility/setup scripts and bat files
+start-all.bat
+*.bat
 
 # Keep documentation (these are important)
 # backend/ORGANIZER_SMTP_FLOW.md is NOT ignored

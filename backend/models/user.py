@@ -3,7 +3,7 @@ Database Models for EVEREST Event Registration System
 Matching the actual PostgreSQL schema
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, SmallInteger, ForeignKey, BigInteger, CheckConstraint, Boolean, Date, Time
+from sqlalchemy import Column, Integer, String, DateTime, Text, SmallInteger, ForeignKey, BigInteger, CheckConstraint, Boolean, Date, Time, LargeBinary
 from sqlalchemy.sql import func
 from database.config import Base
 
@@ -66,7 +66,11 @@ class Event(Base):
     venue = Column(String(200))
     capacity = Column(Integer)
     status = Column(String(50), default='open')
-    cover_photo = Column(Text)
+    cover_photo = Column(Text)  # URL of the cover image (/api/events/{id}/cover)
+    cover_photo_data = Column(LargeBinary)
+    cover_photo_type = Column(String(100))
+    department = Column(String(150))
+    about_event = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
