@@ -17,7 +17,7 @@ class User(Base):
     password = Column(String(255), nullable=False)
     full_name = Column(String(150), nullable=False)
     role = Column(String(50), nullable=False)
-    is_active = Column(SmallInteger, default=True)
+    is_active = Column(Boolean, default=True)  # BOOLEAN in the database
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -36,6 +36,9 @@ class UserRole(Base):
     employment_id = Column(String(50), unique=True)
     student_number = Column(String(50))
     contact_number = Column(String(30))
+    gender = Column(String(30))
+    year_level = Column(String(20))
+    program = Column(String(150))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self):

@@ -26,6 +26,29 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS about_event TEXT;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_data BYTEA;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_type VARCHAR(100);
 
+-- Student/participant profile fields (edited on the Profile page)
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS gender VARCHAR(30);
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS year_level VARCHAR(20);
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS program VARCHAR(150);
+
+-- Student/participant sign-ups waiting for their 6-digit email code (SHA-256 hash only).
+-- The real account is created in users only after the code is verified.
+CREATE TABLE IF NOT EXISTS pending_registrations (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(254) UNIQUE NOT NULL,
+    full_name VARCHAR(150) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    department VARCHAR(150),
+    contact_number VARCHAR(30),
+    code_hash VARCHAR(64) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    last_sent_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+DROP TABLE IF EXISTS email_verification_codes;
+
 -- Rename columns if they have different names
 DO $$ 
 BEGIN

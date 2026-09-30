@@ -12,11 +12,53 @@ from models.auth import set_user_password, get_user_password
 from auth.jwt_handler import create_access_token, get_current_user, require_role, verify_password as verify_bcrypt_password
 from datetime import timedelta
 from pydantic import BaseModel
+from typing import Optional
 import re
 from services.recaptcha_service import verify_recaptcha, get_error_message
 from auth.csrf_protection import generate_csrf_token, set_csrf_cookie, validate_csrf_form
 
 router = APIRouter()
+
+
+PASSWORD_SYMBOLS = "!@#$%&*_"
+
+
+def require_password(password: str) -> None:
+    """
+    Passwords only need to be non-empty. Strength is shown to the user as a
+    rating (frontend strength bar) but not required.
+    """
+    if not password or not password.strip():
+        raise HTTPException(status_code=400, detail="Password is required.")
+
+
+def generate_strong_password(length: int = 12) -> str:
+    """Random 12-character password with upper, lower, number and symbol (for new organizers)."""
+    import secrets
+    import string
+    pools = [string.ascii_uppercase, string.ascii_lowercase, string.digits, PASSWORD_SYMBOLS]
+    chars = [secrets.choice(pool) for pool in pools]
+    everything = "".join(pools)
+    chars += [secrets.choice(everything) for _ in range(length - len(chars))]
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
+
+
+def current_user_id(request: Request) -> int:
+    """
+    The logged-in user's id, read from the HTTP-only access_token cookie set by /login.
+    The frontend must send the request with withCredentials: true.
+    """
+    from auth.jwt_handler import decode_access_token
+
+    cookie = request.cookies.get("access_token")
+    if not cookie:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    payload = decode_access_token(cookie.removeprefix("Bearer "))
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    return user_id
 
 
 @router.get("/test")
@@ -86,6 +128,12 @@ async def login(
         user = db.query(User).filter(User.email == email).first()
         
         if not user:
+            # Registered but not verified yet? Send them to the Verify Email page.
+            from sqlalchemy import text
+            pending = db.execute(text("SELECT password_hash FROM pending_registrations WHERE email = :e"),
+                                 {"e": email}).first()
+            if pending and verify_bcrypt_password(password, pending.password_hash):
+                return _unverified_response(email, "Please verify your email before logging in.")
             raise HTTPException(status_code=401, detail="Invalid email or password")
         
         # Verify password - check database password field
@@ -95,6 +143,7 @@ async def login(
         # Verify password against database hash
         if not verify_bcrypt_password(password, user.password):
             raise HTTPException(status_code=401, detail="Invalid email or password")
+
         
         # Create JWT token
         token_data = {
@@ -166,6 +215,106 @@ async def logout():
 
 
 
+# --- Email verification (6-digit code) for students and participants ---
+# Registrations wait in pending_registrations until the code is verified; only then
+# is the account created in users/user_roles. Unverified sign-ups never appear in
+# admin lists, counts or login.
+VERIFICATION_CODE_TTL_MINUTES = 15
+VERIFICATION_MAX_ATTEMPTS = 5
+VERIFICATION_RESEND_SECONDS = 60
+PENDING_REGISTRATION_TTL_HOURS = 24
+SELF_REGISTERED_ROLES = ("student", "participant")
+
+
+def _hash_code(code: str) -> str:
+    import hashlib
+    return hashlib.sha256(code.encode()).hexdigest()
+
+
+def _new_code() -> str:
+    import secrets
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _unverified_response(email: str, message: str, status_code: int = 403) -> JSONResponse:
+    """Tells the frontend to send the user to the Verify Email page."""
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": message, "verification_required": True, "email": email}
+    )
+
+
+async def _start_pending_registration(
+    db: Session, *, email: str, full_name: str, role: str, password: str,
+    department: Optional[str] = None, contact_number: Optional[str] = None
+) -> JSONResponse:
+    """
+    Save (or replace) a pending registration and email its 6-digit code.
+    Nothing is written to users until /verify-email succeeds.
+    """
+    from sqlalchemy import text
+    from auth.jwt_handler import hash_password
+    from services.email_service import send_verification_code_email
+
+    email = email.strip().lower()
+    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
+        raise HTTPException(status_code=400, detail="Please provide a valid email address")
+    require_password(password)
+
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Drop abandoned sign-ups
+    db.execute(text(f"""
+        DELETE FROM pending_registrations
+        WHERE created_at < NOW() - INTERVAL '{PENDING_REGISTRATION_TTL_HOURS} hours'
+    """))
+
+    recent = db.execute(text("""
+        SELECT EXTRACT(EPOCH FROM (NOW() - last_sent_at)) FROM pending_registrations WHERE email = :e
+    """), {"e": email}).scalar()
+    if recent is not None and recent < VERIFICATION_RESEND_SECONDS:
+        db.commit()
+        return _unverified_response(
+            email,
+            "We already sent a verification code to this email. Enter it on the next page, or request a new one.",
+            status_code=409
+        )
+
+    code = _new_code()
+    db.execute(text("DELETE FROM pending_registrations WHERE email = :e"), {"e": email})
+    db.execute(text(f"""
+        INSERT INTO pending_registrations (
+            email, full_name, role, password_hash, department, contact_number,
+            code_hash, expires_at, attempts, last_sent_at
+        ) VALUES (
+            :email, :full_name, :role, :password_hash, :department, :contact_number,
+            :code_hash, NOW() + INTERVAL '{VERIFICATION_CODE_TTL_MINUTES} minutes', 0, NOW()
+        )
+    """), {
+        "email": email,
+        "full_name": full_name.strip(),
+        "role": role,
+        "password_hash": hash_password(password),
+        "department": (department or "").strip() or None,
+        "contact_number": (contact_number or "").strip() or None,
+        "code_hash": _hash_code(code),
+    })
+    db.commit()
+
+    email_sent = await send_verification_code_email(email, full_name.strip(), code)
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "message": "Enter the 6-digit code we sent to your email to finish creating your account",
+            "verification_required": True,
+            "email_sent": email_sent,
+            "user": {"full_name": full_name.strip(), "email": email}
+        }
+    )
+
+
 @router.post("/register/student")
 async def register_student(
     full_name: str = Form(...),
@@ -176,58 +325,10 @@ async def register_student(
     db: Session = Depends(get_db)
 ):
     """
-    Student registration
+    Student registration (account is created only after email verification)
     """
-    email = email.strip().lower()
-    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
-        raise HTTPException(status_code=400, detail="Please provide a valid email address")
-
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hash password
-    from auth.jwt_handler import hash_password
-    hashed_password = hash_password(password)
-    
-    # Create user
-    new_user = User(
-        full_name=full_name,
-        email=email,
-        password=hashed_password,
-        role='student'
-    )
-    db.add(new_user)
-    db.flush()
-    
-    # Get or create department
-    dept = db.query(Department).filter(Department.department_name == department).first()
-    if not dept:
-        dept = Department(department_name=department)
-        db.add(dept)
-        db.flush()
-    
-    # Create user_role entry for additional info
-    user_role = UserRole(
-        user_id=new_user.id,
-        role_type='student',
-        department_id=dept.id
-    )
-    db.add(user_role)
-    db.commit()
-    
-    return JSONResponse(
-        status_code=200,
-        content={
-            "success": True,
-            "message": "Student registration successful",
-            "user": {
-                "id": new_user.id,
-                "full_name": full_name,
-                "email": email
-            }
-        }
+    return await _start_pending_registration(
+        db, email=email, full_name=full_name, role="student", password=password, department=department
     )
 
 
@@ -241,47 +342,11 @@ async def register_participant(
     db: Session = Depends(get_db)
 ):
     """
-    Participant registration
+    Participant registration (account is created only after email verification)
     """
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hash password
-    from auth.jwt_handler import hash_password
-    hashed_password = hash_password(password)
-    
-    # Create user
-    new_user = User(
-        full_name=full_name,
-        email=email,
-        password=hashed_password,
-        role='participant'
-    )
-    db.add(new_user)
-    db.flush()
-    
-    # Create user_role entry for additional info
-    user_role = UserRole(
-        user_id=new_user.id,
-        role_type='participant',
+    return await _start_pending_registration(
+        db, email=email, full_name=full_name, role="participant", password=password,
         contact_number=contact_number
-    )
-    db.add(user_role)
-    db.commit()
-    
-    return JSONResponse(
-        status_code=200,
-        content={
-            "success": True,
-            "message": "Participant registration successful",
-            "user": {
-                "id": new_user.id,
-                "full_name": full_name,
-                "email": email
-            }
-        }
     )
 
 
@@ -308,8 +373,7 @@ async def create_organizer(
         # Generate random password
         import random
         import string
-        password_chars = "1234567890qwertyuiopasdfghjklzxcvbnm!@#$%^&*_"
-        random_password = ''.join(random.choice(password_chars) for _ in range(12))
+        random_password = generate_strong_password(12)
         
         # Hash password
         from auth.jwt_handler import hash_password
@@ -354,34 +418,27 @@ async def create_organizer(
         email_sent = False
         email_message = ""
         
-        # TEMPORARY: Skip email for testing (remove this later)
-        SKIP_EMAIL = True  # Set to False to enable email sending
-        
-        if SKIP_EMAIL:
-            print(f"   └─ ⚠️ EMAIL SKIPPED (testing mode)")
+        # Sending is controlled by EMAIL_ENABLED in backend/.env
+        try:
+            # IMPORTANT: Check the return value from SMTP confirmation
+            email_sent = await send_organizer_credentials(
+                to_email=email,
+                organizer_name=full_name,
+                employment_id=employment_id,
+                password=random_password  # Send the random password
+            )
+
+            if email_sent:
+                print(f"   └─ ✅ SMTP confirmed email delivery")
+                email_message = "Credentials sent via email"
+            else:
+                print(f"   └─ ⚠️ Email sending failed (no exception but returned False)")
+                email_message = "Email failed to send. Please share credentials manually."
+
+        except Exception as e:
+            print(f"   └─ ❌ Error: {e}")
             email_sent = False
-            email_message = "Email skipped for testing"
-        else:
-            try:
-                # IMPORTANT: Check the return value from SMTP confirmation
-                email_sent = await send_organizer_credentials(
-                    to_email=email,
-                    organizer_name=full_name,
-                    employment_id=employment_id,
-                    password=random_password  # Send the random password
-                )
-                
-                if email_sent:
-                    print(f"   └─ ✅ SMTP confirmed email delivery")
-                    email_message = "Credentials sent via email"
-                else:
-                    print(f"   └─ ⚠️ Email sending failed (no exception but returned False)")
-                    email_message = "Email failed to send. Please share credentials manually."
-                    
-            except Exception as e:
-                print(f"   └─ ❌ Error: {e}")
-                email_sent = False
-                email_message = f"Email failed: {str(e)}. Please share credentials manually."
+            email_message = f"Email failed: {str(e)}. Please share credentials manually."
         
         # Return different response based on email success
         if email_sent:
@@ -506,11 +563,21 @@ def delete_organizer(organizer_id: int, db: Session = Depends(get_db)):
     """
     Delete organizer
     """
-    user = db.query(User).filter(User.id == organizer_id).first()
-    
+    from sqlalchemy import text
+
+    user = db.query(User).filter(User.id == organizer_id, User.role == 'organizer').first()
+
     if not user:
         raise HTTPException(status_code=404, detail="Organizer not found")
-    
+
+    # events.user_role_id has no ON DELETE CASCADE, so remove the organizer's events first
+    # (their registrations and attendance cascade from events)
+    db.execute(text("""
+        DELETE FROM events
+        WHERE user_role_id IN (SELECT id FROM user_roles WHERE user_id = :user_id)
+    """), {"user_id": organizer_id})
+    db.query(Registration).filter(Registration.user_id == organizer_id).delete(synchronize_session=False)
+
     # Delete user (cascade will delete user_role)
     db.delete(user)
     db.commit()
@@ -543,8 +610,8 @@ def get_students(db: Session = Depends(get_db)):
             "full_name": user.full_name,
             "email": user.email,
             "department": dept.department_name if dept else "N/A",
-            "year_level": "N/A",
-            "gender": "N/A",
+            "year_level": (user_role.year_level if user_role else None) or "N/A",
+            "gender": (user_role.gender if user_role else None) or "N/A",
             "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
         })
     
@@ -568,6 +635,8 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Student not found")
 
+    # registrations.user_id has no ON DELETE CASCADE; attendees cascade from registrations
+    db.query(Registration).filter(Registration.user_id == student_id).delete(synchronize_session=False)
     db.delete(user)
     db.commit()
 
@@ -597,7 +666,7 @@ def get_participants(db: Session = Depends(get_db)):
             "full_name": user.full_name,
             "email": user.email,
             "address": "N/A",
-            "gender": "N/A",
+            "gender": (user_role.gender if user_role else None) or "N/A",
             "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
         })
     
@@ -640,18 +709,16 @@ async def forgot_password(email: str = Form(...), db: Session = Depends(get_db))
     """
     Request password reset - sends email with reset link
     """
+    # Users are stored with lowercased emails (see login/register)
+    email = email.strip().lower()
+
     # Check if user exists
     user = db.query(User).filter(User.email == email).first()
-    
+
     if not user:
-        # Don't reveal if email exists or not (security)
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": "If an account exists, you will receive a password reset link"
-            }
-        )
+        # Product decision: tell the user the email isn't registered (this does
+        # reveal whether an email has an account)
+        raise HTTPException(status_code=404, detail="No account is registered with this email.")
     
     # Generate reset token
     import secrets
@@ -686,24 +753,26 @@ async def forgot_password(email: str = Form(...), db: Session = Depends(get_db))
             user_name=user.full_name
         )
         
+        if not email_sent:
+            raise HTTPException(
+                status_code=503,
+                detail="We couldn't send the reset email right now. Please try again later."
+            )
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "message": "If an account exists, you will receive a password reset link",
-                "email_sent": email_sent
+                "message": "A password reset link has been sent to your email",
+                "email_sent": True
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"Error in forgot password: {e}")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": "If an account exists, you will receive a password reset link"
-            }
-        )
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 @router.post("/reset-password")
@@ -737,11 +806,14 @@ async def reset_password(
         raise HTTPException(status_code=400, detail="Reset token has already been used")
     
     # Check if token is expired
-    if datetime.now() > expires_at:
+    # expires_at comes back timezone-aware (TIMESTAMPTZ); compare with an aware "now"
+    now = datetime.now(expires_at.tzinfo) if expires_at.tzinfo else datetime.now()
+    if now > expires_at:
         raise HTTPException(status_code=400, detail="Reset token has expired")
     
     # Hash new password
     from auth.jwt_handler import hash_password
+    require_password(new_password)
     hashed_password = hash_password(new_password)
     
     # Update user password
@@ -1084,8 +1156,9 @@ def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
     query = text("""
         SELECT r.id, u.full_name, u.email, u.role, e.event_name,
                d.department_name, ur.contact_number,
-               a.gender, a.year_level,
-               COALESCE(a.attendance_status, 'not_recorded') AS status
+               COALESCE(a.gender, ur.gender), COALESCE(a.year_level::text, ur.year_level),
+               COALESCE(a.attendance_status, 'not_recorded') AS status,
+               a.address
         FROM registrations r
         JOIN users u ON u.id = r.user_id
         JOIN events e ON e.id = r.event_id
@@ -1111,7 +1184,8 @@ def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
                 "contactNumber": row[6] or "N/A",
                 "gender": row[7] or "N/A",
                 "yearLevel": str(row[8]) if row[8] else "N/A",
-                "status": row[9]
+                "status": row[9],
+                "address": row[10] or "N/A"
             }
             for row in rows
         ]
@@ -1186,15 +1260,20 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     from sqlalchemy import text
     
     query = text("DELETE FROM events WHERE id = :event_id")
-    
+
     try:
-        db.execute(query, {"event_id": event_id})
+        # registrations and attendees cascade from events
+        result = db.execute(query, {"event_id": event_id})
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Event not found")
         db.commit()
         
         return {
             "success": True,
             "message": "Event deleted successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         print(f"Error deleting event: {e}")
@@ -1213,32 +1292,43 @@ async def enroll_event(
     from sqlalchemy import text
     
     # Check if event exists
-    event_query = text("SELECT id, capacity FROM events WHERE id = :event_id")
+    event_query = text("""
+        SELECT e.id, e.capacity, e.status, COUNT(r.id) AS enrolled
+        FROM events e
+        LEFT JOIN registrations r ON r.event_id = e.id
+        WHERE e.id = :event_id
+        GROUP BY e.id
+    """)
     event_result = db.execute(event_query, {"event_id": event_id}).first()
-    
+
     if not event_result:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+    if event_result[2] != 'open':
+        raise HTTPException(status_code=400, detail="This event is not open for enrollment")
+    if event_result[1] is not None and event_result[3] >= event_result[1]:
+        raise HTTPException(status_code=400, detail="This event is already full")
+
+    user = db.query(User).filter(User.email == student_email.strip().lower()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Account not found. Please log in again.")
+
     # Check if already enrolled
-    check_query = text("""
-        SELECT id FROM registrations 
-        WHERE event_id = :event_id AND user_id = (
-            SELECT id FROM users WHERE email = :email
-        )
-    """)
-    existing = db.execute(check_query, {"event_id": event_id, "email": student_email}).first()
-    
+    existing = db.query(Registration).filter(
+        Registration.event_id == event_id,
+        Registration.user_id == user.id
+    ).first()
+
     if existing:
         raise HTTPException(status_code=400, detail="Already enrolled in this event")
-    
+
     # Enroll
     try:
         enroll_query = text("""
             INSERT INTO registrations (event_id, user_id, status)
-            VALUES (:event_id, (SELECT id FROM users WHERE email = :email), 'confirmed')
+            VALUES (:event_id, :user_id, 'confirmed')
             RETURNING id
         """)
-        result = db.execute(enroll_query, {"event_id": event_id, "email": student_email})
+        result = db.execute(enroll_query, {"event_id": event_id, "user_id": user.id})
         db.commit()
         
         return {
@@ -1249,3 +1339,407 @@ async def enroll_event(
         db.rollback()
         print(f"Error enrolling: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+def get_or_create_department(db: Session, name: str) -> Department:
+    dept = db.query(Department).filter(Department.department_name == name).first()
+    if not dept:
+        dept = Department(department_name=name)
+        db.add(dept)
+        db.flush()
+    return dept
+
+
+@router.put("/organizers/{organizer_id}")
+def update_organizer(
+    organizer_id: int,
+    employment_id: str = Form(...),
+    full_name: str = Form(...),
+    department: str = Form(...),
+    email: str = Form(...),
+    contact_number: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Update an organizer's details (admin). The password is not changed here.
+    """
+    user = db.query(User).filter(User.id == organizer_id, User.role == 'organizer').first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Organizer not found")
+
+    email = email.strip().lower()
+    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
+        raise HTTPException(status_code=400, detail="Please provide a valid email address")
+    if db.query(User).filter(User.email == email, User.id != organizer_id).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    employment_id = employment_id.strip()
+    duplicate_id = db.query(UserRole).filter(
+        UserRole.employment_id == employment_id, UserRole.user_id != organizer_id
+    ).first()
+    if duplicate_id:
+        raise HTTPException(status_code=400, detail="Employment ID already exists")
+
+    user_role = db.query(UserRole).filter(
+        UserRole.user_id == organizer_id, UserRole.role_type == 'organizer'
+    ).first()
+    if not user_role:
+        user_role = UserRole(user_id=organizer_id, role_type='organizer')
+        db.add(user_role)
+
+    user.full_name = full_name.strip()
+    user.email = email
+    user_role.employment_id = employment_id
+    user_role.department_id = get_or_create_department(db, department.strip()).id
+    user_role.contact_number = (contact_number or "").strip() or None
+    db.commit()
+
+    return {"success": True, "message": "Organizer updated successfully"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/organizer/change-password")
+@router.post("/student/change-password")
+@router.post("/change-password")
+def change_password(body: ChangePasswordRequest, request: Request, db: Session = Depends(get_db)):
+    """
+    Change the logged-in user's password (identified by the login cookie)
+    """
+    from auth.jwt_handler import hash_password
+
+    user = db.query(User).filter(User.id == current_user_id(request)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    if not verify_bcrypt_password(body.current_password, user.password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    require_password(body.new_password)
+
+    user.password = hash_password(body.new_password)
+    db.commit()
+    return {"success": True, "message": "Password changed successfully"}
+
+
+def _profile_response(user: User, user_role, dept) -> dict:
+    return {
+        "fullName": user.full_name,
+        "srCode": (user_role.student_number if user_role else None) or "",
+        "collegeDepartment": dept.department_name if dept else "",
+        "program": (user_role.program if user_role else None) or "",
+        "yearLevel": (user_role.year_level if user_role else None) or "",
+        "gender": (user_role.gender if user_role else None) or "",
+        "contactNumber": (user_role.contact_number if user_role else None) or "",
+        "email": user.email,
+        "role": user.role.capitalize(),
+    }
+
+
+def _role_row(db: Session, user: User):
+    user_role = db.query(UserRole).filter(
+        UserRole.user_id == user.id, UserRole.role_type == user.role
+    ).first()
+    dept = None
+    if user_role and user_role.department_id:
+        dept = db.query(Department).filter(Department.id == user_role.department_id).first()
+    return user_role, dept
+
+
+@router.get("/student/profile")
+def get_student_profile(request: Request, db: Session = Depends(get_db)):
+    """
+    The logged-in student's (or participant's) profile
+    """
+    user = db.query(User).filter(User.id == current_user_id(request)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    user_role, dept = _role_row(db, user)
+    return {"success": True, "profile": _profile_response(user, user_role, dept)}
+
+
+class ProfileUpdate(BaseModel):
+    fullName: str
+    srCode: Optional[str] = None
+    collegeDepartment: Optional[str] = None
+    program: Optional[str] = None
+    yearLevel: Optional[str] = None
+    gender: Optional[str] = None
+    contactNumber: Optional[str] = None
+
+
+@router.put("/student/profile")
+def update_student_profile(body: ProfileUpdate, request: Request, db: Session = Depends(get_db)):
+    """
+    Update the logged-in student's (or participant's) profile.
+    Email and role can't be changed here.
+    """
+    user = db.query(User).filter(User.id == current_user_id(request)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    if not body.fullName.strip():
+        raise HTTPException(status_code=400, detail="Full name is required")
+
+    user_role, _ = _role_row(db, user)
+    if not user_role:
+        user_role = UserRole(user_id=user.id, role_type=user.role)
+        db.add(user_role)
+
+    def clean(value: Optional[str]) -> Optional[str]:
+        """Profile text is stored in ALL CAPS."""
+        return (value or "").strip().upper() or None
+
+    def year_level(value: Optional[str]) -> Optional[str]:
+        """'1st', '2', '3RD YEAR' -> '1ST YEAR' .. '4TH YEAR' (the profile dropdown values)."""
+        match = re.search(r"[1-4]", value or "")
+        return ["1ST YEAR", "2ND YEAR", "3RD YEAR", "4TH YEAR"][int(match.group()) - 1] if match else None
+
+    def phone(value: Optional[str]) -> Optional[str]:
+        """Digits only, formatted 0912-345-6789 when it's an 11-digit number."""
+        digits = re.sub(r"\D", "", value or "")[:11]
+        if len(digits) == 11:
+            return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
+        return digits or None
+
+    user.full_name = clean(body.fullName)
+    user_role.student_number = clean(body.srCode)
+    user_role.program = clean(body.program)
+    user_role.year_level = year_level(body.yearLevel)
+    user_role.gender = clean(body.gender)
+    user_role.contact_number = phone(body.contactNumber)
+    if clean(body.collegeDepartment):
+        user_role.department_id = get_or_create_department(db, clean(body.collegeDepartment)).id
+    db.commit()
+
+    user_role, dept = _role_row(db, user)
+    return {
+        "success": True,
+        "message": "Profile updated successfully",
+        "profile": _profile_response(user, user_role, dept)
+    }
+
+
+@router.put("/events/{event_id}")
+async def update_event(
+    event_id: int,
+    event_name: str = Form(...),
+    event_description: str = Form(...),
+    event_date: str = Form(...),
+    event_time: str = Form(...),
+    venue: str = Form(...),
+    capacity: int = Form(...),
+    organizer_id: int = Form(...),
+    department: str = Form(None),
+    about_event: str = Form(None),
+    cover_photo: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Update an event (only by the organizer who created it). The cover photo is
+    replaced only when a new one is uploaded.
+    """
+    from sqlalchemy import text
+    from datetime import datetime
+
+    owner = db.execute(text("""
+        SELECT e.id FROM events e
+        JOIN user_roles ur ON ur.id = e.user_role_id
+        WHERE e.id = :event_id AND ur.user_id = :organizer_id
+    """), {"event_id": event_id, "organizer_id": organizer_id}).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    try:
+        datetime.strptime(f"{event_date} {event_time[:5]}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date or time")
+    if capacity < 1:
+        raise HTTPException(status_code=400, detail="Capacity must be at least 1")
+
+    enrolled = db.execute(
+        text("SELECT COUNT(*) FROM registrations WHERE event_id = :id"), {"id": event_id}
+    ).scalar()
+    if capacity < enrolled:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Capacity can't be lower than the {enrolled} people already enrolled"
+        )
+
+    params = {
+        "id": event_id,
+        "event_name": event_name,
+        "event_description": event_description,
+        "event_date": event_date,
+        "event_time": event_time,
+        "venue": venue,
+        "capacity": capacity,
+        "department": department or None,
+        "about_event": about_event or None,
+    }
+    cover_sql = ""
+    if cover_photo and cover_photo.filename:
+        if not (cover_photo.content_type or "").startswith("image/"):
+            raise HTTPException(status_code=400, detail="Cover photo must be an image")
+        data = await cover_photo.read()
+        if len(data) > MAX_COVER_PHOTO_BYTES:
+            raise HTTPException(status_code=400, detail="Cover photo must be 5 MB or smaller")
+        params.update(
+            cover_photo_data=data,
+            cover_photo_type=cover_photo.content_type,
+            cover_photo=f"/api/events/{event_id}/cover"
+        )
+        cover_sql = (", cover_photo_data = :cover_photo_data, "
+                     "cover_photo_type = :cover_photo_type, cover_photo = :cover_photo")
+
+    db.execute(text(f"""
+        UPDATE events SET
+            event_name = :event_name, event_description = :event_description,
+            event_date = :event_date, event_time = :event_time, venue = :venue,
+            capacity = :capacity, department = :department, about_event = :about_event,
+            updated_at = NOW(){cover_sql}
+        WHERE id = :id
+    """), params)
+    db.commit()
+
+    return {"success": True, "message": "Event updated successfully"}
+
+
+
+@router.post("/verify-email")
+def verify_email(email: str = Form(...), code: str = Form(...), db: Session = Depends(get_db)):
+    """
+    Check the 6-digit code; if correct, create the student/participant account
+    from the pending registration.
+    """
+    import hmac
+    from sqlalchemy import text
+
+    email = email.strip().lower()
+    code = code.strip()
+
+    pending = db.execute(text("""
+        SELECT id, full_name, role, password_hash, department, contact_number,
+               code_hash, attempts, expires_at > NOW() AS still_valid
+        FROM pending_registrations WHERE email = :e
+    """), {"e": email}).first()
+
+    if not pending:
+        if db.query(User).filter(User.email == email).first():
+            return {"success": True, "message": "Your email is already verified. You can log in."}
+        raise HTTPException(status_code=404, detail="No pending registration for this email. Please register again.")
+    if not pending.still_valid:
+        raise HTTPException(status_code=400, detail="This code has expired. Please request a new one.")
+    if pending.attempts >= VERIFICATION_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please request a new code.")
+
+    if not (code.isdigit() and len(code) == 6 and hmac.compare_digest(_hash_code(code), pending.code_hash)):
+        db.execute(text("UPDATE pending_registrations SET attempts = attempts + 1 WHERE id = :id"), {"id": pending.id})
+        db.commit()
+        left = VERIFICATION_MAX_ATTEMPTS - pending.attempts - 1
+        if left <= 0:
+            raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please request a new code.")
+        raise HTTPException(status_code=400, detail=f"Incorrect code. {left} attempt{'s' if left != 1 else ''} left.")
+
+    if db.query(User).filter(User.email == email).first():
+        db.execute(text("DELETE FROM pending_registrations WHERE id = :id"), {"id": pending.id})
+        db.commit()
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Code is correct: create the real account now
+    new_user = User(
+        full_name=pending.full_name,
+        email=email,
+        password=pending.password_hash,
+        role=pending.role,
+        is_active=True
+    )
+    db.add(new_user)
+    db.flush()
+
+    user_role = UserRole(user_id=new_user.id, role_type=pending.role, contact_number=pending.contact_number)
+    if pending.department:
+        user_role.department_id = get_or_create_department(db, pending.department).id
+    db.add(user_role)
+    db.execute(text("DELETE FROM pending_registrations WHERE id = :id"), {"id": pending.id})
+    db.commit()
+
+    return {"success": True, "message": "Your email has been verified and your account is created. You can now log in."}
+
+
+@router.post("/resend-verification")
+async def resend_verification(email: str = Form(...), db: Session = Depends(get_db)):
+    """
+    Send a new 6-digit code for a pending registration (at most once every VERIFICATION_RESEND_SECONDS)
+    """
+    from sqlalchemy import text
+    from services.email_service import send_verification_code_email
+
+    email = email.strip().lower()
+    pending = db.execute(text("""
+        SELECT id, full_name, EXTRACT(EPOCH FROM (NOW() - last_sent_at)) AS seconds_since
+        FROM pending_registrations WHERE email = :e
+    """), {"e": email}).first()
+
+    if not pending:
+        if db.query(User).filter(User.email == email).first():
+            raise HTTPException(status_code=400, detail="This email is already verified. You can log in.")
+        raise HTTPException(status_code=404, detail="No pending registration for this email. Please register again.")
+
+    if pending.seconds_since is not None and pending.seconds_since < VERIFICATION_RESEND_SECONDS:
+        wait = int(VERIFICATION_RESEND_SECONDS - pending.seconds_since) + 1
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"Please wait {wait} seconds before requesting a new code.", "retry_after": wait}
+        )
+
+    code = _new_code()
+    db.execute(text(f"""
+        UPDATE pending_registrations
+        SET code_hash = :h, attempts = 0, last_sent_at = NOW(),
+            expires_at = NOW() + INTERVAL '{VERIFICATION_CODE_TTL_MINUTES} minutes'
+        WHERE id = :id
+    """), {"h": _hash_code(code), "id": pending.id})
+    db.commit()
+
+    if not await send_verification_code_email(email, pending.full_name, code):
+        raise HTTPException(status_code=503, detail="We couldn't send the code right now. Please try again later.")
+    return {"success": True, "message": f"A new code was sent to {email}.", "retry_after": VERIFICATION_RESEND_SECONDS}
+
+
+@router.get("/student/my-events")
+def get_my_events(request: Request, db: Session = Depends(get_db)):
+    """
+    Events the logged-in student/participant enrolled in, with their attendance
+    ('present' or 'not_recorded'). Identified by the login cookie.
+    """
+    from sqlalchemy import text
+
+    user_id = current_user_id(request)
+    rows = db.execute(text("""
+        SELECT e.id, e.event_name, e.event_date, e.event_time, e.venue, e.status,
+               COALESCE(a.attendance_status, 'not_recorded') AS attendance,
+               r.registration_date
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        LEFT JOIN attendees a ON a.registration_id = r.id
+        WHERE r.user_id = :u
+        ORDER BY e.event_date DESC NULLS LAST, e.event_time DESC NULLS LAST
+    """), {"u": user_id}).fetchall()
+
+    return {
+        "success": True,
+        "events": [
+            {
+                "id": row.id,
+                "event_name": row.event_name,
+                "event_date": str(row.event_date) if row.event_date else None,
+                "event_time": str(row.event_time) if row.event_time else None,
+                "venue": row.venue,
+                "status": row.status,
+                "attendance": row.attendance,
+            }
+            for row in rows
+        ]
+    }

@@ -36,6 +36,9 @@ CREATE TABLE user_roles (
     employment_id VARCHAR(50) UNIQUE,
     student_number VARCHAR(50),
     contact_number VARCHAR(30),
+    gender VARCHAR(30),
+    year_level VARCHAR(20),
+    program VARCHAR(150),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -94,6 +97,23 @@ CREATE TABLE password_reset_tokens (
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     used BOOLEAN DEFAULT FALSE
+);
+
+-- Student/participant sign-ups waiting for their 6-digit email code (SHA-256 hash only).
+-- The real account is created in users only after the code is verified.
+CREATE TABLE pending_registrations (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(254) UNIQUE NOT NULL,
+    full_name VARCHAR(150) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    department VARCHAR(150),
+    contact_number VARCHAR(30),
+    code_hash VARCHAR(64) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    last_sent_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for better performance
