@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-register',
@@ -10,14 +11,21 @@ import { Router } from '@angular/router';
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
-export class Register {
+export class Register implements OnInit {
   fullName: string = '';
   role: string = '';
   errorMessage: string = '';
 
   roles: string[] = ['Student', 'Participant'];
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    public themeService: ThemeService
+  ) {}
+
+  ngOnInit() {
+    // ThemeService automatically loads dark mode preference
+  }
 
   onSubmit() {
     if (!this.fullName || !this.role) {
@@ -42,5 +50,9 @@ export class Register {
 
   goToLogin() {
     this.router.navigate(['/login']);
+  }
+
+  toggleDarkMode() {
+    this.themeService.toggleDarkMode();
   }
 }

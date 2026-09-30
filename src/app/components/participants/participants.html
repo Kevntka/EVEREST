@@ -1,0 +1,166 @@
+<div class="admin-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">Administrator</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToOrganizer()">
+        <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Organizer</span>
+      </button>
+      <button class="nav-item" (click)="goToStudents()">
+        <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Students</span>
+      </button>
+      <a href="#" class="nav-item active">
+        <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Participants</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Participants</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">Administrator</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content page-fill">
+      <!-- Search and Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="search-box">
+            <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+            <input 
+              type="text" 
+              placeholder="Search Name" 
+              class="search-input"
+              [(ngModel)]="searchName"
+              (ngModelChange)="filterParticipants()"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Participants Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+        <table class="participants-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Address</th>
+              <th>Email</th>
+              <th>Gender</th>
+              <th>Number</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let participant of pager.slice(filteredParticipants)">
+              <td>{{ participant.full_name }}</td>
+              <td>{{ participant.address }}</td>
+              <td>{{ participant.email }}</td>
+              <td>{{ participant.gender }}</td>
+              <td>{{ participant.contact_number }}</td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn view-btn" (click)="viewParticipant(participant)" aria-label="View participant">
+                    <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    <span>View</span>
+                  </button>
+                  <button class="action-btn delete-btn" (click)="deleteParticipant(participant.id)" aria-label="Delete participant">
+                    <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="filteredParticipants.length === 0">
+            No participants to display
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredParticipants)" (click)="pager.prev(filteredParticipants)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(filteredParticipants) }} of {{ pager.totalPages(filteredParticipants) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredParticipants)" (click)="pager.next(filteredParticipants)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Participant Modal -->
+  <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
+    <div class="modal-content details-modal" (click)="$event.stopPropagation()" *ngIf="selectedParticipant">
+      <div class="details-header">
+        <div class="details-avatar">{{ selectedParticipant.full_name.charAt(0).toUpperCase() }}</div>
+        <div class="details-identity">
+          <h2 class="details-name">{{ selectedParticipant.full_name }}</h2>
+          <span class="details-role">Participant</span>
+          <p class="details-email">
+            <lucide-icon [img]="Mail" [size]="14"></lucide-icon>{{ selectedParticipant.email }}
+          </p>
+        </div>
+      </div>
+
+      <div class="details-list">
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="MapPin" [size]="16"></lucide-icon>Address</span>
+            <span class="details-value">{{ selectedParticipant.address || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="UserRound" [size]="16"></lucide-icon>Gender</span>
+            <span class="details-value">{{ selectedParticipant.gender || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Phone" [size]="16"></lucide-icon>Contact Number</span>
+            <span class="details-value">{{ selectedParticipant.contact_number || 'N/A' }}</span>
+          </div>
+      </div>
+
+      <button type="button" class="details-close" (click)="closeViewModal()">Close</button>
+    </div>
+  </div>
+</div>

@@ -20,6 +20,88 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 0;
+  transition: background 0.3s ease;
+}
+
+/* Dark Mode Toggle */
+.dark-mode-toggle {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 13px;
+  border-radius: 30px;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.4s ease;
+}
+
+.dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  padding-right: 20px;
+}
+
+.dark-mode-icon {
+  width: 24px;
+  height: 24px;
+  color: #333;
+  transition: transform 0.5s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 5px;
+}
+
+.dark-mode-toggle:hover .dark-mode-icon {
+  transform: rotate(-360deg);
+}
+
+.dark-mode-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 0.3s ease, opacity 0.3s ease;
+  line-height: 24px;
+}
+
+.dark-mode-toggle:hover .dark-mode-text {
+  max-width: 100px;
+  opacity: 1;
+}
+
+/* Dark Mode Styles */
+:host-context(body.dark-mode) {
+  background-color: #1a1a1a;
+}
+
+:host-context(body.dark-mode)::before {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+:host-context(body.dark-mode) .dark-mode-toggle {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+:host-context(body.dark-mode) .dark-mode-toggle:hover {
+  background: rgba(30, 30, 30, 1);
+}
+
+:host-context(body.dark-mode) .dark-mode-icon {
+  color: #ffd700;
+}
+
+:host-context(body.dark-mode) .dark-mode-text {
+  color: #fff;
 }
 
 .register-container {
@@ -31,6 +113,12 @@
   max-width: 400px;
   position: relative;
   z-index: 1;
+  transition: all 0.3s ease;
+}
+
+:host-context(body.dark-mode) .register-container {
+  background: #2a2a2a;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .register-header {
@@ -43,11 +131,21 @@
   font-weight: 600;
   margin-bottom: 8px;
   color: #333;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .register-header h1 {
+  color: #fff;
 }
 
 .register-header p {
   font-size: 14px;
   color: #666;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .register-header p {
+  color: #aaa;
 }
 
 .form-group {
@@ -64,13 +162,32 @@
   background-color: #f5f5f5;
   transition: all 0.3s ease;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
+
+:host-context(body.dark-mode) .form-group input[type="text"],
+:host-context(body.dark-mode) .form-group select {
+  background-color: #3a3a3a;
+  border-color: #555;
+  color: #fff;
+}
+
+:host-context(body.dark-mode) .form-group select option {
+  background-color: #3a3a3a;
+  color: #fff;
 }
 
 .form-group input[type="text"]:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #ff5555;
+  border-color: #dc3545;
   background-color: white;
+}
+
+:host-context(body.dark-mode) .form-group input[type="text"]:focus,
+:host-context(body.dark-mode) .form-group select:focus {
+  background-color: #4a4a4a;
+  border-color: #ff5555;
 }
 
 .form-group select {
@@ -111,7 +228,7 @@
 .btn-continue {
   width: 100%;
   padding: 14px;
-  background-color: #ffb3b3;
+  background-color: #dc3545;
   color: white;
   border: none;
   border-radius: 4px;
@@ -123,11 +240,11 @@
 }
 
 .btn-continue:hover:not(:disabled) {
-  background-color: #ff9999;
+  background-color: #c82333;
 }
 
 .btn-continue:disabled {
-  background-color: #ffcccc;
+  background-color: #f5c6cb;
   cursor: not-allowed;
 }
 
@@ -135,10 +252,15 @@
   text-align: center;
   font-size: 14px;
   color: #666;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .login-link {
+  color: #aaa;
 }
 
 .login-link a {
-  color: #ff5555;
+  color: #dc3545;
   text-decoration: none;
   font-weight: 600;
   cursor: pointer;
@@ -146,8 +268,16 @@
 }
 
 .login-link a:hover {
-  color: #ff3333;
+  color: #c82333;
   text-decoration: underline;
+}
+
+:host-context(body.dark-mode) .login-link a {
+  color: #ff5555;
+}
+
+:host-context(body.dark-mode) .login-link a:hover {
+  color: #ff7777;
 }
 
 @media (max-width: 480px) {

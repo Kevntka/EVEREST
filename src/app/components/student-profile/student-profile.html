@@ -1,0 +1,192 @@
+<div class="student-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">Student</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <a href="#" class="nav-item active">
+        <lucide-icon [img]="UserCircle" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Profile</span>
+      </a>
+      <button class="nav-item" (click)="goToMyEvents()">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">My Events</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Profile</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ profile.fullName }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Profile Content -->
+    <div class="page-content">
+      <div class="profile-grid">
+        <!-- Left Column - Avatar and Basic Info -->
+        <div class="left-column">
+          <div class="avatar-card">
+            <div class="avatar-wrapper">
+              <div class="avatar-circle">
+                <img *ngIf="profile.avatarUrl" [src]="profile.avatarUrl" alt="Profile Picture" class="avatar-img" />
+                <div *ngIf="!profile.avatarUrl" class="avatar-placeholder">
+                  {{ profile.fullName.charAt(0).toUpperCase() }}
+                </div>
+              </div>
+              <div class="edit-icon-badge" (click)="triggerFileInput()">
+                <lucide-icon [img]="Pencil" class="edit-icon"></lucide-icon>
+              </div>
+            </div>
+            <input 
+              type="file" 
+              #fileInput 
+              (change)="onFileSelected($event)" 
+              accept="image/*" 
+              style="display: none;"
+            />
+            <h3 class="profile-name">{{ profile.fullName }}</h3>
+            <div class="role-badge">{{ profile.role }}</div>
+            <div class="email-text">{{ profile.email }}</div>
+          </div>
+        </div>
+
+        <!-- Right Column - Profile Details -->
+        <div class="right-column">
+          <div class="profile-card">
+            <div class="card-header">
+              <button class="edit-btn" (click)="toggleEdit()" [attr.aria-label]="isEditing ? 'Save profile' : 'Edit profile'">
+                <lucide-icon [img]="Pencil" [size]="16"></lucide-icon>
+                <span>{{ isEditing ? 'Save' : 'Edit' }}</span>
+              </button>
+            </div>
+
+            <div class="profile-details">
+              <div class="detail-row">
+                <div class="detail-label">Full Name</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.fullName }}</div>
+                <input 
+                  *ngIf="isEditing" 
+                  class="detail-input uppercase-input" 
+                  [(ngModel)]="profile.fullName"
+                />
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Sr-code</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.srCode }}</div>
+                <input 
+                  *ngIf="isEditing" 
+                  class="detail-input uppercase-input" 
+                  [(ngModel)]="profile.srCode"
+                />
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">College / Department</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.collegeDepartment }}</div>
+                <input 
+                  *ngIf="isEditing" 
+                  class="detail-input uppercase-input" 
+                  [(ngModel)]="profile.collegeDepartment"
+                />
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Program</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.program }}</div>
+                <input 
+                  *ngIf="isEditing" 
+                  class="detail-input uppercase-input" 
+                  [(ngModel)]="profile.program"
+                />
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Year Level</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.yearLevel }}</div>
+                <select 
+                  *ngIf="isEditing" 
+                  class="detail-input" 
+                  [(ngModel)]="profile.yearLevel"
+                >
+                  <option value="">SELECT YEAR LEVEL</option>
+                  @for (level of yearLevels; track level) {
+                    <option [value]="level">{{ level }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Gender</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.gender }}</div>
+                <select 
+                  *ngIf="isEditing" 
+                  class="detail-input" 
+                  [(ngModel)]="profile.gender"
+                >
+                  <option value="">SELECT GENDER</option>
+                  <option value="MALE">MALE</option>
+                  <option value="FEMALE">FEMALE</option>
+                </select>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Number</div>
+                <div class="detail-value" *ngIf="!isEditing">{{ profile.contactNumber }}</div>
+                <input 
+                  *ngIf="isEditing" 
+                  class="detail-input" 
+                  type="tel"
+                  inputmode="numeric"
+                  maxlength="13"
+                  placeholder="0912-345-6789"
+                  [ngModel]="profile.contactNumber"
+                  (ngModelChange)="profile.contactNumber = formatContactNumber($event)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,169 @@
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 3000;
+  animation: dialog-fade 0.2s ease-out;
+}
+
+.dialog-overlay--clickable {
+  cursor: pointer;
+}
+
+.dialog-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 40px 36px 28px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  animation: dialog-pop 0.25s ease-out;
+}
+
+/* Outlined circle icon, like the Success!/Deleted! screenshots */
+.dialog-icon {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 4px solid;
+  box-sizing: border-box;
+}
+
+.dialog-icon--success {
+  border-color: #e3f4dc;
+  color: #8fd46e;
+}
+
+.dialog-icon--error {
+  border-color: #f9dcdc;
+  color: #f27474;
+}
+
+/* Warning mockup: solid yellow circle */
+.dialog-icon--confirm,
+.dialog-icon--warning {
+  background-color: #f8df8b;
+  border-color: #eed080;
+  color: #b8860b;
+}
+
+/* lucide-icon is inline by default and sits on the text baseline */
+.dialog-icon lucide-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-icon-mark {
+  display: block;
+  width: 54px;
+  height: 54px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.dialog-title {
+  margin: 0 0 14px;
+  font-size: 30px;
+  font-weight: 600;
+  color: #545454;
+}
+
+.dialog-message {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #666666;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+
+.dialog-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.dialog-btn {
+  min-width: 120px;
+  padding: 11px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dialog-btn--cancel {
+  background-color: #dcdcdc;
+  color: #444444;
+}
+
+.dialog-btn--cancel:hover {
+  background-color: #c9c9c9;
+}
+
+.dialog-btn--ok {
+  background-color: #dc3545;
+  color: #ffffff;
+}
+
+.dialog-btn--ok:hover {
+  background-color: #c82333;
+}
+
+:host-context(body.dark-mode) .dialog-card {
+  background-color: #2d2d2d;
+}
+
+:host-context(body.dark-mode) .dialog-title {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .dialog-message {
+  color: #d0d0d0;
+}
+
+
+:host-context(body.dark-mode) .dialog-icon--success {
+  border-color: #3a5a30;
+}
+
+:host-context(body.dark-mode) .dialog-icon--error {
+  border-color: #5a3030;
+}
+
+:host-context(body.dark-mode) .dialog-btn--cancel {
+  background-color: #4b5563;
+  color: #f3f4f6;
+}
+
+:host-context(body.dark-mode) .dialog-btn--cancel:hover {
+  background-color: #5b6573;
+}
+
+@keyframes dialog-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}

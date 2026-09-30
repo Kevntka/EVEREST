@@ -21,7 +21,90 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 0;
+  transition: background 0.3s ease;
 }
+
+/* Dark Mode Toggle */
+.dark-mode-toggle {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 13px;
+  border-radius: 30px;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.4s ease;
+}
+
+.dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  padding-right: 20px;
+}
+
+.dark-mode-icon {
+  width: 24px;
+  height: 24px;
+  color: #333;
+  transition: transform 0.5s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 5px;
+}
+
+.dark-mode-toggle:hover .dark-mode-icon {
+  transform: rotate(-360deg);
+}
+
+.dark-mode-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 0.3s ease, opacity 0.3s ease;
+  line-height: 24px;
+}
+
+.dark-mode-toggle:hover .dark-mode-text {
+  max-width: 100px;
+  opacity: 1;
+}
+
+/* Dark Mode Styles */
+:host-context(body.dark-mode) {
+  background-color: #1a1a1a;
+}
+
+:host-context(body.dark-mode)::before {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+:host-context(body.dark-mode) .dark-mode-toggle {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+:host-context(body.dark-mode) .dark-mode-toggle:hover {
+  background: rgba(30, 30, 30, 1);
+}
+
+:host-context(body.dark-mode) .dark-mode-icon {
+  color: #ffd700;
+}
+
+:host-context(body.dark-mode) .dark-mode-text {
+  color: #fff;
+}
+
 
 .login-container {
   background: white;
@@ -32,6 +115,12 @@
   max-width: 400px;
   position: relative;
   z-index: 1;
+  transition: all 0.3s ease;
+}
+
+:host-context(body.dark-mode) .login-container {
+  background: #2a2a2a;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .login-header {
@@ -44,11 +133,21 @@
   font-weight: 600;
   margin-bottom: 8px;
   color: #333;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .login-header h1 {
+  color: #fff;
 }
 
 .login-header p {
   font-size: 14px;
   color: #666;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .login-header p {
+  color: #aaa;
 }
 
 .form-group {
@@ -61,10 +160,15 @@
   color: #333;
   margin-bottom: 8px;
   font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+:host-context(body.dark-mode) .form-group label {
+  color: #fff;
 }
 
 .form-group input[type="email"],
-.form-group input[type="password"] {
+.form-group input.password-input {
   width: 100%;
   padding: 12px 15px;
   border: 1px solid #ddd;
@@ -72,13 +176,27 @@
   font-size: 14px;
   background-color: #f5f5f5;
   transition: all 0.3s ease;
+  color: #333;
+}
+
+:host-context(body.dark-mode) .form-group input[type="email"],
+:host-context(body.dark-mode) .form-group input.password-input {
+  background-color: #3a3a3a;
+  border-color: #555;
+  color: #fff;
 }
 
 .form-group input[type="email"]:focus,
-.form-group input[type="password"]:focus {
+.form-group input.password-input:focus {
   outline: none;
   border-color: #ff5555;
   background-color: white;
+}
+
+:host-context(body.dark-mode) .form-group input[type="email"]:focus,
+:host-context(body.dark-mode) .form-group input.password-input:focus {
+  background-color: #4a4a4a;
+  border-color: #ff5555;
 }
 
 .captcha-container {
@@ -86,6 +204,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+:host-context(body.dark-mode) .captcha-container > div {
+  filter: invert(0.88) hue-rotate(180deg) brightness(1.1) contrast(0.9) saturate(1.2);
+  border-radius: 4px;
 }
 
 .error-message {
@@ -140,6 +263,17 @@
   background-color: #f9f9f9;
 }
 
+:host-context(body.dark-mode) .btn-create {
+  background-color: #3a3a3a;
+  color: #fff;
+  border-color: #555;
+}
+
+:host-context(body.dark-mode) .btn-create:hover {
+  border-color: #777;
+  background-color: #4a4a4a;
+}
+
 .forgot-password {
   text-align: center;
 }
@@ -155,9 +289,58 @@
   color: #dc3545;
 }
 
+:host-context(body.dark-mode) .forgot-password a {
+  color: #aaa;
+}
+
+:host-context(body.dark-mode) .forgot-password a:hover {
+  color: #ff5555;
+}
+
 @media (max-width: 480px) {
   .login-container {
     padding: 30px 25px;
     margin: 20px;
   }
+}
+
+/* Password visibility toggle */
+.password-wrapper {
+  position: relative;
+}
+
+.form-group input.password-input {
+  padding-right: 44px;
+}
+
+/* Hide Edge's built-in reveal button, which disappears after blur */
+.password-input::-ms-reveal,
+.password-input::-ms-clear {
+  display: none;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: #333;
+}
+
+:host-context(body.dark-mode) .password-toggle {
+  color: #b0b0b0;
+}
+
+:host-context(body.dark-mode) .password-toggle:hover {
+  color: #ffffff;
 }

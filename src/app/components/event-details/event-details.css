@@ -1,0 +1,423 @@
+/* Event Details Container */
+.event-details-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* Top Bar */
+.top-bar {
+  height: 70px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #212529;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.menu-toggle:hover {
+  background-color: #f8f9fa;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+/* User Menu */
+.user-menu {
+  position: relative;
+}
+
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.user-dropdown:hover {
+  background-color: #f8f9fa;
+}
+
+.user-dropdown lucide-icon {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.dropdown-arrow-icon {
+  color: #6c757d;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 14px;
+  color: #212529;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 30px;
+}
+
+.content-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Back Button */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: #6c757d;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 24px;
+  transition: color 0.2s ease;
+}
+
+.back-btn:hover {
+  color: #212529;
+}
+
+.back-btn lucide-icon {
+  display: flex;
+}
+
+/* Event Grid */
+.event-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 40px;
+  align-items: start;
+}
+
+/* Left Column */
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.event-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #ff8a80 0%, #ff6b6b 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+}
+
+.about-section {
+  padding: 0;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0 0 10px 0;
+}
+
+.section-text {
+  font-size: 14px;
+  color: #6c757d;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Right Column */
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.event-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #212529;
+  margin: 0;
+}
+
+.event-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #6c757d;
+  margin: 0;
+}
+
+.meta-icon {
+  color: #dc3545;
+  flex-shrink: 0;
+  display: flex;
+}
+
+.meta-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #dee2e6;
+  flex-shrink: 0;
+}
+
+.event-description {
+  font-size: 14px;
+  color: #6c757d;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Capacity Stats */
+.capacity-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 10px;
+  background-color: #f1f3f5;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px 0;
+}
+
+.stat-box {
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.stat-box + .stat-box {
+  border-left: 1px solid #ced4da;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Enroll Button */
+.enroll-btn {
+  padding: 14px 32px;
+  background-color: #dc3545;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 10px;
+}
+
+.enroll-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.enroll-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Loading State */
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+}
+
+.loading-state lucide-icon {
+  color: #dc3545;
+  animation: spin 1s linear infinite;
+}
+
+.loading-state p {
+  color: #6c757d;
+  font-size: 16px;
+  margin: 0;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .event-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .capacity-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    padding: 0 15px;
+  }
+
+  .main-content {
+    padding: 20px;
+  }
+
+  .event-title {
+    font-size: 24px;
+  }
+
+
+  .stat-value {
+    font-size: 24px;
+  }
+}
+
+/* Dark mode (host-context needed to beat encapsulated styles) */
+:host-context(body.dark-mode) .event-details-container {
+  background-color: #1a1a1a;
+}
+
+:host-context(body.dark-mode) .top-bar {
+  background-color: #2d2d2d;
+  border-bottom-color: #404040;
+}
+
+:host-context(body.dark-mode) .menu-toggle,
+:host-context(body.dark-mode) .page-title,
+:host-context(body.dark-mode) .user-name,
+:host-context(body.dark-mode) .user-dropdown lucide-icon,
+:host-context(body.dark-mode) .event-title,
+:host-context(body.dark-mode) .section-title,
+:host-context(body.dark-mode) .stat-value {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .menu-toggle:hover,
+:host-context(body.dark-mode) .user-dropdown:hover {
+  background-color: #3a3a3a;
+}
+
+:host-context(body.dark-mode) .dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+:host-context(body.dark-mode) .dropdown-item {
+  color: #e0e0e0;
+}
+
+:host-context(body.dark-mode) .dropdown-item:hover {
+  background-color: #3a3a3a;
+}
+
+:host-context(body.dark-mode) .back-btn,
+:host-context(body.dark-mode) .meta-item,
+:host-context(body.dark-mode) .event-description,
+:host-context(body.dark-mode) .section-text,
+:host-context(body.dark-mode) .stat-label {
+  color: #b0b0b0;
+}
+
+:host-context(body.dark-mode) .back-btn:hover {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .capacity-stats {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+:host-context(body.dark-mode) .stat-box + .stat-box {
+  border-left-color: #404040;
+}

@@ -1,0 +1,319 @@
+<div class="organizer-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="organizer-title">Organizer</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <a href="#" class="nav-item active">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Event</span>
+      </a>
+      <button class="nav-item" (click)="goToAttendance()">
+        <lucide-icon [img]="ClipboardCheck" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Attendance</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Event</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ organizerName }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content page-fill">
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="search-box">
+            <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+            <input 
+              type="text" 
+              placeholder="Search Event" 
+              class="search-input"
+              [(ngModel)]="searchQuery"
+            />
+          </div>
+
+          <select class="status-select" [(ngModel)]="selectedStatus">
+            <option value="">Status</option>
+            <option value="open">Open</option>
+            <option value="full">Full</option>
+            <option value="close">Close</option>
+          </select>
+        </div>
+
+        <button class="create-btn" (click)="openCreateModal()">
+          <lucide-icon [img]="Plus" [size]="18"></lucide-icon>
+          <span>Create Event</span>
+        </button>
+      </div>
+
+      <!-- Events Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+        <table class="events-table">
+          <thead>
+            <tr>
+              <th>Event Title</th>
+              <th>Capacity</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let event of pager.slice(filteredEvents)">
+              <td>{{ event.title }}</td>
+              <td>{{ event.currentCapacity }}/{{ event.maxCapacity }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="'status-' + event.status.toLowerCase()">
+                  {{ event.status }}
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn edit-btn" (click)="editEvent(event)" title="Edit">
+                    <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button class="action-btn delete-btn" (click)="deleteEvent(event.id)" title="Delete">
+                    <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="filteredEvents.length === 0">
+            {{ events.length === 0 ? 'No events to display' : 'No events match your search or filter' }}
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredEvents)" (click)="pager.prev(filteredEvents)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(filteredEvents) }} of {{ pager.totalPages(filteredEvents) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredEvents)" (click)="pager.next(filteredEvents)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Event Modal -->
+  <div class="modal-overlay" *ngIf="showCreateModal">
+    <div class="modal-content create-event-modal">
+      <h2 class="modal-title">{{ editingEventId ? 'Edit Event' : 'Create New Event' }}</h2>
+      
+      <form class="modal-form" (ngSubmit)="createEvent()">
+        <div class="form-field">
+          <label class="form-label">Event Title</label>
+          <input 
+            type="text" 
+            class="form-input"
+            [(ngModel)]="newEvent.title"
+            name="title"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Description</label>
+            <textarea 
+              class="form-textarea"
+              [(ngModel)]="newEvent.description"
+              name="description"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">About this Event</label>
+            <textarea 
+              class="form-textarea"
+              [(ngModel)]="newEvent.aboutEvent"
+              name="aboutEvent"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Start Date</label>
+            <input 
+              type="date" 
+              class="form-input"
+              [(ngModel)]="newEvent.date"
+              name="date"
+              required
+            />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Time</label>
+            <input 
+              type="time" 
+              class="form-input"
+              [(ngModel)]="newEvent.time"
+              name="time"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Registration Deadline</label>
+            <input 
+              type="date" 
+              class="form-input"
+              [(ngModel)]="newEvent.registrationDeadline"
+              name="registrationDeadline"
+              required
+            />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Capacity</label>
+            <input 
+              type="number" 
+              class="form-input"
+              [(ngModel)]="newEvent.capacity"
+              name="capacity"
+              min="1"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Department</label>
+            <select class="form-input" [(ngModel)]="newEvent.department" name="department">
+              <option value="">Select Department</option>
+              <option value="Computer Science">Computer Science</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Business">Business</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Venue</label>
+            <input 
+              type="text" 
+              class="form-input"
+              [(ngModel)]="newEvent.venue"
+              name="venue"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Cover Photo<span class="form-hint" *ngIf="editingEventId"> (leave empty to keep the current photo)</span></label>
+          <input 
+            type="file" 
+            class="form-input"
+            accept="image/*"
+            (change)="onFileSelected($event)"
+          />
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="btn-cancel" (click)="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn-create" [disabled]="isSaving">{{ isSaving ? (editingEventId ? 'Saving...' : 'Creating...') : (editingEventId ? 'Save' : 'Create') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePassword()">
+    <div class="modal-content change-password-modal" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Change Password</h2>
+      
+      <form class="modal-form" (ngSubmit)="changePassword()">
+        <div class="form-field">
+          <label class="form-label">Current Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.currentPassword"
+            name="currentPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.newPassword"
+            name="newPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Confirm New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.confirmPassword"
+            name="confirmPassword"
+            required
+          />
+          <app-password-checklist [password]="passwordForm.newPassword"></app-password-checklist>
+        </div>
+
+        <button type="submit" class="btn-create">Change Password</button>
+      </form>
+    </div>
+  </div>
+</div>

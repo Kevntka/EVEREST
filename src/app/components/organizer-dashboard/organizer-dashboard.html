@@ -1,0 +1,209 @@
+<div class="organizer-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="organizer-title">Organizer</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </a>
+      <button class="nav-item" (click)="goToEvents()">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Events</span>
+      </button>
+      <button class="nav-item" (click)="goToAttendance()">
+        <lucide-icon [img]="ClipboardList" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Attendance</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Dashboard</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ organizerName }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="page-content">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="GraduationCap" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Students</h3>
+            <p class="stat-value">{{ stats.students }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="Users" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Participants</h3>
+            <p class="stat-value">{{ stats.participants }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="CalendarCheck" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Total Enrollment</h3>
+            <p class="stat-value">{{ stats.totalEnrollment }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="CalendarX2" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Open Event</h3>
+            <p class="stat-value">{{ stats.openEvents }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enrollment By Events -->
+      <div class="charts-container">
+        <div class="chart-section">
+          <h3 class="section-title">Enrollment By Events</h3>
+          <div class="enrollment-list" *ngIf="enrollmentData.length > 0">
+            <div class="enrollment-item" *ngFor="let event of enrollmentData">
+              <span class="enrollment-name">{{ event.eventName }}</span>
+              <div class="enrollment-row">
+                <div class="progress-bar-container">
+                  <div class="progress-bar" [style.width.%]="getEnrollmentPercent(event)"></div>
+                </div>
+                <span class="enrollment-text">{{ event.enrolled }}/{{ event.capacity }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="empty-chart" *ngIf="enrollmentData.length === 0">
+            <p>No enrollment data available</p>
+          </div>
+        </div>
+
+        <div class="chart-section">
+          <h3 class="section-title">Attendance Summary</h3>
+          <div class="attendance-chart" *ngIf="attendanceData.present > 0 || attendanceData.notRecorded > 0">
+            <div class="pie-chart">
+              <!-- Simple pie chart representation -->
+              <svg viewBox="0 0 100 100" width="200" height="200">
+                <circle cx="50" cy="50" r="50" class="pie-not-recorded" />
+                <circle 
+                  cx="50" 
+                  cy="50" 
+                  r="25" 
+                  fill="transparent"
+                  class="pie-present"
+                  [attr.stroke-dasharray]="getStrokeDasharray()"
+                  stroke-width="50"
+                  transform="rotate(-90 50 50)"
+                />
+              </svg>
+            </div>
+            <div class="legend">
+              <div class="legend-item">
+                <span class="legend-color present"></span>
+                <span>Present</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color not-recorded"></span>
+                <span>Not Recorded</span>
+              </div>
+            </div>
+          </div>
+          <div class="empty-chart" *ngIf="attendanceData.present === 0 && attendanceData.notRecorded === 0">
+            <p>No attendance data available</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePassword()">
+    <div class="modal-content change-password-modal" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Change Password</h2>
+      
+      <form class="modal-form" (ngSubmit)="changePassword()">
+        <div class="form-field">
+          <label class="form-label">Current Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.currentPassword"
+            name="currentPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.newPassword"
+            name="newPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Confirm New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.confirmPassword"
+            name="confirmPassword"
+            required
+          />
+          <app-password-checklist [password]="passwordForm.newPassword"></app-password-checklist>
+        </div>
+
+        <button type="submit" class="btn-create">Change Password</button>
+      </form>
+    </div>
+  </div>
+</div>

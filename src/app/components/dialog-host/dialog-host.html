@@ -1,0 +1,30 @@
+@if (dialog.state(); as d) {
+  <!-- Notices close on any click; the confirm dialog only closes via its buttons -->
+  <div class="dialog-overlay" [class.dialog-overlay--clickable]="d.kind !== 'confirm'" (click)="onOverlayClick()">
+    <div class="dialog-card" role="alertdialog" aria-labelledby="dialog-title" aria-describedby="dialog-message">
+      <div [class]="'dialog-icon dialog-icon--' + d.kind">
+        @switch (d.kind) {
+          @case ('success') { <lucide-icon [img]="Check" [size]="54" [strokeWidth]="2.5"></lucide-icon> }
+          @case ('error') { <lucide-icon [img]="X" [size]="54" [strokeWidth]="2.5"></lucide-icon> }
+          @default {
+            <!-- Drawn "!" so it sits in the exact center (a text glyph sits low) -->
+            <svg class="dialog-icon-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="4.5" x2="12" y2="14" />
+              <circle cx="12" cy="19" r="0.6" />
+            </svg>
+          }
+        }
+      </div>
+
+      <h2 id="dialog-title" class="dialog-title">{{ d.title }}</h2>
+      <p id="dialog-message" class="dialog-message">{{ d.message }}</p>
+
+      @if (d.kind === 'confirm') {
+        <div class="dialog-buttons">
+          <button type="button" class="dialog-btn dialog-btn--cancel" (click)="dialog.close(false)">Cancel</button>
+          <button type="button" class="dialog-btn dialog-btn--ok" (click)="dialog.close(true)">{{ d.confirmText }}</button>
+        </div>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,201 @@
+<div class="organizer-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="organizer-title">Organizer</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToEvents()">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Event</span>
+      </button>
+      <a href="#" class="nav-item active">
+        <lucide-icon [img]="ClipboardCheck" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Attendance</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Attendance</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ organizerName }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content page-fill">
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="search-box">
+            <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+            <input 
+              type="text" 
+              placeholder="Search Name" 
+              class="search-input"
+              [(ngModel)]="searchQuery"
+            />
+          </div>
+
+          <select class="filter-select" [(ngModel)]="selectedFilter">
+            <option value="">All</option>
+            <option value="student">Student</option>
+            <option value="participant">Participant</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Attendance Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Event</th>
+              @if (selectedFilter === 'student') { <th>Department</th> }
+              @else if (selectedFilter === 'participant') { <th>Address</th> }
+              @else { <th>Role</th> }
+              <th>Email</th>
+              <th>Gender</th>
+              <th>Number</th>
+              @if (selectedFilter === 'student') { <th>Year Level</th> }
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let attendee of pager.slice(filteredAttendees)">
+              <td>{{ attendee.name }}</td>
+              <td>{{ attendee.eventName }}</td>
+              @if (selectedFilter === 'student') { <td>{{ attendee.department }}</td> }
+              @else if (selectedFilter === 'participant') { <td>{{ attendee.address || 'N/A' }}</td> }
+              @else { <td class="role-cell">{{ attendee.type }}</td> }
+              <td>{{ attendee.gsuite || attendee.email }}</td>
+              <td>{{ attendee.gender }}</td>
+              <td>{{ attendee.contactNumber }}</td>
+              @if (selectedFilter === 'student') { <td>{{ attendee.yearLevel || 'N/A' }}</td> }
+              <td>
+                <div class="action-buttons">
+                  <button
+                    class="action-btn present-btn"
+                    [class.active]="attendee.status === 'present'"
+                    (click)="setAttendance(attendee, 'present')"
+                    title="Present"
+                  >
+                    <lucide-icon [img]="UserCheck" [size]="16"></lucide-icon>
+                    <span>Present</span>
+                  </button>
+                  <button
+                    class="action-btn not-recorded-btn"
+                    [class.active]="attendee.status === 'not_recorded'"
+                    (click)="setAttendance(attendee, 'not_recorded')"
+                    title="Not Recorded"
+                  >
+                    <lucide-icon [img]="UserMinus" [size]="16"></lucide-icon>
+                    <span>Not Recorded</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="filteredAttendees.length === 0">
+            {{ attendees.length === 0 ? 'No attendees to display' : 'No attendees match your search or filter' }}
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredAttendees)" (click)="pager.prev(filteredAttendees)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(filteredAttendees) }} of {{ pager.totalPages(filteredAttendees) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredAttendees)" (click)="pager.next(filteredAttendees)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePassword()">
+    <div class="modal-content change-password-modal" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Change Password</h2>
+      
+      <form class="modal-form" (ngSubmit)="changePassword()">
+        <div class="form-field">
+          <label class="form-label">Current Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.currentPassword"
+            name="currentPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.newPassword"
+            name="newPassword"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Confirm New Password</label>
+          <input 
+            type="password" 
+            class="form-input"
+            [(ngModel)]="passwordForm.confirmPassword"
+            name="confirmPassword"
+            required
+          />
+          <app-password-checklist [password]="passwordForm.newPassword"></app-password-checklist>
+        </div>
+
+        <button type="submit" class="btn-create">Change Password</button>
+      </form>
+    </div>
+  </div>
+</div>

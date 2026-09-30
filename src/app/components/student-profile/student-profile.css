@@ -1,0 +1,586 @@
+/* Copy all the sidebar and top bar styles from student-dashboard.css */
+.student-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background-color: #f8f9fa;
+}
+
+/* Sidebar - Same as student dashboard */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background-color: #ffffff;
+  border-right: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  transition: margin-left 0.3s ease;
+  z-index: 10;
+}
+
+.sidebar.closed {
+  margin-left: -220px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+    margin-left: 0;
+  }
+  
+  .sidebar.closed {
+    margin-left: -220px;
+  }
+}
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 20px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.logo-circle {
+  width: 115px;
+  height: 115px;
+  border-radius: 50%;
+  background-color: #eceef1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.logo-img {
+  width: 70%;
+  height: 70%;
+  margin-left: -6px;
+  margin-top: -20px;
+  object-fit: contain;
+}
+
+.admin-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+  margin: 0;
+  text-align: center;
+}
+
+.nav-menu {
+  flex: 1;
+  padding: 20px 15px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  margin-bottom: 4px;
+  text-decoration: none;
+  color: #6c757d;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+}
+
+.nav-item:hover {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.nav-item.active {
+  background-color: #e7f5e9;
+  color: #28a745;
+  font-weight: 500;
+}
+
+.nav-icon {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-icon ::ng-deep svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-text {
+  font-size: 14px;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+  overflow: hidden;
+}
+
+/* Top Bar */
+.top-bar {
+  height: 70px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #212529;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.menu-toggle:hover {
+  background-color: #f8f9fa;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.user-dropdown:hover {
+  background-color: #f8f9fa;
+}
+
+.user-dropdown lucide-icon {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.dropdown-arrow-icon {
+  color: #6c757d;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 14px;
+  color: #212529;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item lucide-icon {
+  display: flex;
+  align-items: center;
+  color: #6c757d;
+}
+
+/* Page Content */
+.page-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+/* Profile Grid */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Left Column - Avatar Card */
+.left-column {
+  display: flex;
+}
+
+.avatar-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 40px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
+
+.avatar-circle {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff8a80 0%, #ff6b6b 100%);
+  margin-bottom: 24px;
+}
+
+.profile-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0 0 12px 0;
+  text-align: center;
+}
+
+.role-badge {
+  padding: 8px 24px;
+  background: linear-gradient(135deg, #ff8a80 0%, #ff6b6b 100%);
+  color: #ffffff;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.email-text {
+  font-size: 14px;
+  color: #6c757d;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+  width: 100%;
+  text-align: center;
+}
+
+/* Right Column - Profile Details */
+.right-column {
+  display: flex;
+}
+
+.profile-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
+
+.card-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+.edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  box-sizing: border-box;
+  padding: 6px;
+  width: 36px;
+  min-width: 36px;
+  flex: 0 0 auto;
+  height: 36px;
+  background-color: #dbe4ee;
+  border: 1px solid rgba(154, 170, 189, 0.45);
+  color: #4b5563;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover {
+  background-color: #c4d0dd;
+  opacity: 1;
+}
+
+.edit-btn lucide-icon {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: #6c757d;
+}
+
+.edit-btn span {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  line-height: 16px;
+  text-align: left;
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(8px);
+  transition: max-width 0.2s ease, opacity 0.15s ease, transform 0.2s ease;
+}
+
+.edit-btn:hover,
+.edit-btn:focus-visible {
+  justify-content: flex-start;
+  width: 74px;
+  min-width: 74px;
+  gap: 6px;
+}
+
+.edit-btn:hover span,
+.edit-btn:focus-visible span {
+  max-width: 44px;
+  margin-left: 0;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Profile Details */
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  gap: 20px;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 500;
+}
+
+.detail-input {
+  padding: 10px 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #212529;
+  background-color: #ffffff;
+}
+
+.detail-input:focus {
+  outline: none;
+  border-color: #ff6b6b;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    padding: 0 15px;
+  }
+
+  .page-content {
+    padding: 20px;
+  }
+
+  .detail-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .detail-label {
+    font-weight: 600;
+  }
+}
+
+/* Dark mode profile cards and details */
+:host-context(body.dark-mode) .avatar-card,
+:host-context(body.dark-mode) .profile-card {
+  background-color: #2d2d2d;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+:host-context(body.dark-mode) .profile-name,
+:host-context(body.dark-mode) .detail-value {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .email-text,
+:host-context(body.dark-mode) .detail-label {
+  color: #d1d5db;
+}
+
+:host-context(body.dark-mode) .email-text {
+  border-top-color: #404040;
+}
+
+:host-context(body.dark-mode) .detail-input {
+  background-color: #3a3a3a;
+  border-color: #555555;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .detail-input:focus {
+  border-color: #ff6b6b;
+}
+
+:host-context(body.dark-mode) .edit-btn {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .edit-btn:hover,
+:host-context(body.dark-mode) .edit-btn:focus-visible {
+  background-color: #4b5563;
+}
+
+:host-context(body.dark-mode) .edit-btn lucide-icon {
+  color: #ffffff;
+}
+
+
+/* Avatar image upload styles */
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.avatar-circle {
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8787 100%);
+  border-radius: 50%;
+}
+
+/* Edit icon badge - overlapping the circle */
+.edit-icon-badge {
+  position: absolute;
+  bottom: 17px;
+  right: 18px;
+  width: 42px;
+  height: 42px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 3px solid #ffffff;
+  transition: transform 0.2s ease;
+  z-index: 10;
+}
+
+.edit-icon-badge:hover {
+  transform: scale(1.05);
+}
+
+.edit-icon {
+  width: 20px;
+  height: 20px;
+  color: #2d3748;
+  stroke-width: 2;
+  margin-left: -2px;
+  margin-top: -1px;
+}
+
+/* Profile values are saved in ALL CAPS; show them that way while typing */
+.uppercase-input {
+  text-transform: uppercase;
+}

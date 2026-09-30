@@ -11,3 +11,345 @@ body {
   margin: 0;
   padding: 0;
 }
+
+
+/* Dark Mode Styles */
+body.dark-mode {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+/* Dark Mode - Sidebar */
+body.dark-mode .sidebar {
+  background-color: #2d2d2d;
+  border-right-color: #404040;
+}
+
+body.dark-mode .logo-section {
+  border-bottom-color: #404040;
+}
+
+/* Sidebar logo circle on every page: soft drop shadow like the mockup
+   (light-mode fill #eceef1 is set in each page's CSS) */
+.logo-circle {
+  box-shadow: 3px 5px 12px rgba(0, 0, 0, 0.22);
+}
+
+/* Dark mode: soft neutral gray, lighter than the #2d2d2d sidebar; deeper shadow to read on dark */
+body.dark-mode .logo-circle {
+  background-color: #454545;
+  box-shadow: 3px 5px 14px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-mode .admin-title {
+  color: #e0e0e0;
+}
+
+body.dark-mode .nav-item {
+  color: #b0b0b0;
+}
+
+body.dark-mode .nav-item:hover {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+body.dark-mode .nav-item.active {
+  background-color: #2d5016;
+  color: #7ed957;
+}
+
+body.dark-mode .participants-section {
+  border-top-color: #404040;
+}
+
+/* Dark Mode - Top Bar */
+body.dark-mode .top-bar {
+  background-color: #2d2d2d;
+  border-bottom-color: #404040;
+}
+
+body.dark-mode .menu-toggle {
+  color: #e0e0e0;
+}
+
+body.dark-mode .menu-toggle:hover {
+  background-color: #3a3a3a;
+}
+
+body.dark-mode .page-title {
+  color: #e0e0e0;
+}
+
+body.dark-mode .user-dropdown {
+  color: #e0e0e0;
+}
+
+body.dark-mode .user-dropdown:hover {
+  background-color: #3a3a3a;
+}
+
+body.dark-mode .user-name {
+  color: #e0e0e0;
+}
+
+body.dark-mode .dropdown-arrow-icon {
+  color: #b0b0b0;
+}
+
+body.dark-mode .dropdown-menu {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+body.dark-mode .dropdown-item {
+  color: #e0e0e0;
+}
+
+body.dark-mode .dropdown-item:hover {
+  background-color: #3a3a3a;
+}
+
+/* Dark Mode - Main Content */
+body.dark-mode .main-content {
+  background-color: #1a1a1a;
+}
+
+body.dark-mode .page-content {
+  color: #e0e0e0;
+}
+
+/* Dark Mode - Stats Cards */
+body.dark-mode .stat-card {
+  background: linear-gradient(135deg, #8b3a3a 0%, #6b2929 100%);
+}
+
+body.dark-mode .stat-title {
+  color: #e0e0e0;
+}
+
+body.dark-mode .stat-value {
+  color: #ffffff;
+}
+
+/* Dark Mode - Search & Filters */
+body.dark-mode .search-input,
+body.dark-mode .department-select {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+body.dark-mode .search-input:focus,
+body.dark-mode .department-select:focus {
+  background-color: #3a3a3a;
+  border-color: #dc3545;
+}
+
+body.dark-mode .search-input::placeholder {
+  color: #808080;
+}
+
+body.dark-mode .search-icon {
+  color: #808080;
+}
+
+/* Dark Mode - Tables */
+body.dark-mode .table-container {
+  background-color: #2d2d2d;
+}
+
+body.dark-mode .events-table th,
+body.dark-mode .organizers-table th,
+body.dark-mode .students-table th,
+body.dark-mode .participants-table th {
+  color: #b0b0b0;
+  border-bottom-color: #404040;
+}
+
+body.dark-mode .events-table tbody tr,
+body.dark-mode .organizers-table tbody tr,
+body.dark-mode .students-table tbody tr,
+body.dark-mode .participants-table tbody tr {
+  border-bottom-color: #404040;
+}
+
+body.dark-mode .events-table tbody tr:hover,
+body.dark-mode .organizers-table tbody tr:hover,
+body.dark-mode .students-table tbody tr:hover,
+body.dark-mode .participants-table tbody tr:hover {
+  background-color: #3a3a3a;
+}
+
+body.dark-mode .events-table td,
+body.dark-mode .organizers-table td,
+body.dark-mode .students-table td,
+body.dark-mode .participants-table td {
+  color: #b0b0b0;
+}
+
+body.dark-mode .empty-state {
+  color: #808080;
+}
+
+body.dark-mode .table-pagination {
+  border-top-color: #404040;
+}
+
+body.dark-mode .pagination-btn {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #b0b0b0;
+}
+
+body.dark-mode .pagination-btn:not(:disabled):hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #ffffff;
+}
+
+body.dark-mode .pagination-btn:disabled {
+  background-color: #3a3a3a;
+}
+
+body.dark-mode .pagination-info {
+  color: #b0b0b0;
+}
+
+/* Dark Mode - Modal */
+body.dark-mode .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .modal-content {
+  background-color: #2d2d2d;
+}
+
+body.dark-mode .modal-title {
+  color: #e0e0e0;
+}
+
+body.dark-mode .form-label {
+  color: #b0b0b0;
+}
+
+body.dark-mode .form-input {
+  background-color: #1a1a1a;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+body.dark-mode .form-input:focus {
+  background-color: #3a3a3a;
+  border-color: #dc3545;
+}
+
+body.dark-mode .form-input::placeholder {
+  color: #808080;
+}
+
+/* Dark Mode - Buttons */
+body.dark-mode .add-btn {
+  background-color: #dc3545;
+  color: #ffffff;
+}
+
+body.dark-mode .add-btn:hover {
+  background-color: #c82333;
+}
+
+/* Sun/Moon icon spin when toggling dark mode (classes set by ThemeService) */
+.theme-icon {
+  display: inline-flex;
+}
+
+.theme-icon-spin-a {
+  animation: theme-icon-spin-a 0.5s ease;
+}
+
+.theme-icon-spin-b {
+  animation: theme-icon-spin-b 0.5s ease;
+}
+
+@keyframes theme-icon-spin-a {
+  from { transform: rotate(-180deg) scale(0.6); opacity: 0; }
+  to { transform: rotate(0deg) scale(1); opacity: 1; }
+}
+
+@keyframes theme-icon-spin-b {
+  from { transform: rotate(-180deg) scale(0.6); opacity: 0; }
+  to { transform: rotate(0deg) scale(1); opacity: 1; }
+}
+
+/* ---------- Full-height table pages (all list tables) ----------
+   <div class="page-content page-fill"> ... <div class="table-container">
+     <div class="table-scroll"><table>...</table><div class="table-empty">...</div></div>
+     <div class="table-pagination">...</div>
+   The card fills the screen, rows scroll with a pinned header row, the pagination
+   stays at the bottom and the empty/loading message is centered.
+   "body" raises specificity above the pages' encapsulated styles. */
+body .page-content.page-fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body .page-fill > *:not(.table-container) {
+  flex-shrink: 0;
+}
+
+body .page-fill .table-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body .page-fill .table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden; /* no sideways scrollbar: tables fit the card width */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Overrides each page's table min-width so the table fits instead of scrolling sideways */
+body .page-fill .table-scroll > table {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+body .page-fill .table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #ffffff;
+}
+
+body.dark-mode .page-fill .table-scroll thead th {
+  background-color: #2d2d2d;
+}
+
+body .page-fill .table-pagination {
+  flex-shrink: 0;
+}
+
+body .table-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
+  color: #adb5bd;
+}
+
+body.dark-mode .table-empty {
+  color: #b0b0b0;
+}
