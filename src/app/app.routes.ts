@@ -44,7 +44,7 @@ export const routes: Routes = [
   
   // Student routes (protected)
   { path: 'student-dashboard', component: StudentDashboard, canActivate: [roleGuard(['student', 'participant'])] },
-  { path: 'student-profile', component: StudentProfile, canActivate: [roleGuard('student')] },
+  { path: 'student-profile', component: StudentProfile, canActivate: [roleGuard(['student', 'participant'])] },
   { path: 'my-events', component: MyEvents, canActivate: [roleGuard(['student', 'participant'])] },
   { path: 'event/:id', component: EventDetails, canActivate: [authGuard] },
 ];

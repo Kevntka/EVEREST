@@ -123,6 +123,15 @@
                     <span>Present</span>
                   </button>
                   <button
+                    class="action-btn absent-btn"
+                    [class.active]="attendee.status === 'absent'"
+                    (click)="setAttendance(attendee, 'absent')"
+                    title="Absent"
+                  >
+                    <lucide-icon [img]="UserX" [size]="16"></lucide-icon>
+                    <span>Absent</span>
+                  </button>
+                  <button
                     class="action-btn not-recorded-btn"
                     [class.active]="attendee.status === 'not_recorded'"
                     (click)="setAttendance(attendee, 'not_recorded')"

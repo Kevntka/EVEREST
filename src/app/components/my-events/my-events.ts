@@ -17,6 +17,7 @@ import {
   Key
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
+import { formatTimeRange } from '../../utils/event-time';
 import { DialogService } from '../../services/dialog.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { PasswordChecklist } from '../password-checklist/password-checklist';
@@ -25,9 +26,9 @@ export interface MyEvent {
   id: number;
   title: string;
   date: string | null;
-  time: string | null;
+  time: string; // '8:00 AM - 5:00 PM'
   venue: string;
-  attendance: 'present' | 'not_recorded';
+  attendance: 'present' | 'absent' | 'not_recorded';  // set by the organizer
 }
 
 const PAGE_SIZE = 10;
@@ -93,9 +94,9 @@ export class MyEvents implements OnInit {
             id: evt.id,
             title: evt.event_name,
             date: evt.event_date,
-            time: evt.event_time,
+            time: formatTimeRange(evt.event_time, evt.event_end_time),
             venue: evt.venue,
-            attendance: evt.attendance === 'present' ? 'present' : 'not_recorded',
+            attendance: ['present', 'absent'].includes(evt.attendance) ? evt.attendance : 'not_recorded',
           }));
           this.loading = false;
         },
@@ -110,6 +111,8 @@ export class MyEvents implements OnInit {
         }
       });
   }
+
+  readonly attendanceLabels = { present: 'Present', absent: 'Absent', not_recorded: 'Not Recorded' };
 
   /** "Completed" = events where your attendance was recorded as Present. */
   get completedCount(): number {
@@ -148,14 +151,6 @@ export class MyEvents implements OnInit {
 
   nextPage(): void {
     if (this.currentPage < this.totalPages) this.currentPage++;
-  }
-
-  /** "14:30:00" -> "2:30 PM" */
-  formatTime(time: string | null): string {
-    if (!time) return 'TBA';
-    const [h, m] = time.split(':');
-    const hour = Number(h);
-    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
   }
 
   viewEventDetails(event: MyEvent): void {

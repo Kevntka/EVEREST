@@ -99,10 +99,10 @@
             @for (event of pagedEvents; track event.id) {
               <tr>
                 <td class="event-title-cell">{{ event.title }}</td>
-                <td>{{ event.date ? (event.date | date: 'MMM d, y') : 'TBA' }} | {{ formatTime(event.time) }}</td>
+                <td>{{ event.date ? (event.date | date: 'MMM d, y') : 'TBA' }} | {{ event.time }}</td>
                 <td>
-                  <span class="attendance-badge" [class.present]="event.attendance === 'present'">
-                    {{ event.attendance === 'present' ? 'Present' : 'Not Recorded' }}
+                  <span class="attendance-badge" [class.present]="event.attendance === 'present'" [class.absent]="event.attendance === 'absent'">
+                    {{ attendanceLabels[event.attendance] }}
                   </span>
                 </td>
                 <td>

@@ -17,6 +17,8 @@ import {
   Key
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
+import { formatTimeRange } from '../../utils/event-time';
+import { registrationOpensOn, isRegistrationOpen, formatShortDate, displayStatus } from '../../utils/registration';
 
 import { DialogService } from '../../services/dialog.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
@@ -31,6 +33,10 @@ export interface Event {
   availableSlots: number;
   status: string;
   coverPhoto?: string;
+  opensOn: string;  // YYYY-MM-DD enrolling opens (registration start, or the event date)
+  closesOn: string; // YYYY-MM-DD last day to enroll ('' = until the event ends)
+  enrolled: number;
+  capacity: number;
 }
 
 @Component({
@@ -51,7 +57,6 @@ export class StudentDashboard implements OnInit {
   searchQueryLeft = '';
   selectedStatusLeft = '';
   searchQueryRight = '';
-  selectedStatusRight = '';
   
   events: Event[] = [];
   upcomingEvents: Event[] = [];
@@ -74,6 +79,7 @@ export class StudentDashboard implements OnInit {
   readonly Sun = Sun;
   readonly LogOut = LogOut;
   readonly Key = Key;
+  readonly formatShortDate = formatShortDate;
 
   constructor(
     private router: Router, 
@@ -101,21 +107,23 @@ export class StudentDashboard implements OnInit {
             title: evt.event_name,
             description: evt.event_description,
             date: evt.event_date,
-            time: evt.event_time,
+            time: formatTimeRange(evt.event_time, evt.event_end_time),
             venue: evt.venue,
             availableSlots: evt.capacity - (evt.enrolled_count || 0),
             status: evt.status,
+            opensOn: registrationOpensOn(evt.registration_start, evt.event_date),
+            closesOn: evt.registration_end || '',
+            enrolled: evt.enrolled_count || 0,
+            capacity: evt.capacity,
             coverPhoto: evt.cover_photo ? `http://localhost:8000${evt.cover_photo}` : '' // Full URL for image
           })) || [];
           
           console.log('Mapped events:', allEvents); // Debug log
           
-          // Events whose start date is after today are "upcoming"; they move to
-          // the Events column once their start date arrives (dates are YYYY-MM-DD)
-          const now = new Date();
-          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-          this.events = allEvents.filter((evt: Event) => !evt.date || evt.date <= today);
-          this.upcomingEvents = allEvents.filter((evt: Event) => evt.date && evt.date > today);
+          // Events whose registration hasn't started yet are "upcoming" (can't enroll);
+          // they move to the Events column on their registration start date
+          this.events = allEvents.filter((evt: Event) => isRegistrationOpen(evt.opensOn));
+          this.upcomingEvents = allEvents.filter((evt: Event) => !isRegistrationOpen(evt.opensOn));
           this.cdr.detectChanges();
         },
         error: (error) => {
@@ -128,20 +136,23 @@ export class StudentDashboard implements OnInit {
       });
   }
 
+  /** Badge shown on a card: Upcoming / Open / Full / Closed (same rule as the organizer's table). */
+  badgeStatus(event: Event, _upcoming = false): string {
+    return displayStatus(event.status, event.opensOn, event.enrolled, event.capacity, event.closesOn);
+  }
+
   get filteredEvents(): Event[] {
     return this.events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(this.searchQueryLeft.toLowerCase());
-      const matchesStatus = !this.selectedStatusLeft || event.status.toLowerCase() === this.selectedStatusLeft.toLowerCase();
+      const matchesStatus = !this.selectedStatusLeft || this.badgeStatus(event) === this.selectedStatusLeft;
       return matchesSearch && matchesStatus;
     });
   }
 
   get filteredUpcomingEvents(): Event[] {
-    return this.upcomingEvents.filter(event => {
-      const matchesSearch = event.title.toLowerCase().includes(this.searchQueryRight.toLowerCase());
-      const matchesStatus = !this.selectedStatusRight || event.status.toLowerCase() === this.selectedStatusRight.toLowerCase();
-      return matchesSearch && matchesStatus;
-    });
+    return this.upcomingEvents.filter(event =>
+      event.title.toLowerCase().includes(this.searchQueryRight.toLowerCase())
+    );
   }
 
   toggleSidebar(): void {

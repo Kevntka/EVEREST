@@ -1,44 +1,37 @@
 /* Layout comes from forgot-password.css; these are the verify-only bits */
+
+/* A little bigger than the Forgot Password card (that page keeps its own size) */
+.forgot-password-container {
+  max-width: 480px;
+  padding: 48px 56px;
+}
+
+.forgot-password-header h1 {
+  font-size: 34px;
+  margin-bottom: 12px;
+}
+
+.forgot-password-header p {
+  font-size: 17px;
+}
+
+.back-link {
+  font-size: 17px;
+}
+
+@media (max-width: 480px) {
+  .forgot-password-container {
+    padding: 30px 25px;
+  }
+}
 .verify-email-address {
   overflow-wrap: anywhere;
 }
 
-/* forgot-password.css only styles email inputs, so the code field is styled fully here */
-.form-group .code-input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  height: 56px;
-  padding: 0 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background-color: #f5f5f5;
-  color: #333;
-  font-family: inherit;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 10px;
-  text-indent: 10px; /* balances the trailing letter-spacing so the digits look centered */
-  text-align: center;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
-
-.form-group .code-input::placeholder {
-  color: #c4c4c4;
-  letter-spacing: 10px;
-}
-
-.form-group .code-input:focus {
-  outline: none;
-  border-color: #dc3545;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.12);
-}
-
 .resend-line {
-  margin: 4px 0 16px;
+  margin: 4px 0 18px;
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   color: #6c757d;
 }
 
@@ -54,22 +47,6 @@
 
 .resend-wait {
   color: #9ca3af;
-}
-
-:host-context(body.dark-mode) .form-group .code-input {
-  background-color: #3a3a3a;
-  border-color: #555;
-  color: #ffffff;
-}
-
-:host-context(body.dark-mode) .form-group .code-input:focus {
-  background-color: #4a4a4a;
-  border-color: #dc3545;
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
-}
-
-:host-context(body.dark-mode) .form-group .code-input::placeholder {
-  color: #777;
 }
 
 :host-context(body.dark-mode) .resend-line {

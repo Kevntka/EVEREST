@@ -19,41 +19,39 @@
 </div>
 
 <div class="forgot-password-container">
-  <div class="forgot-password-header">
-    <h1>Verify Your Email</h1>
-    <p>Enter the 6-digit code we sent to <strong class="verify-email-address">{{ email }}</strong></p>
-  </div>
+  @switch (state()) {
+    @case ('sent') {
+      <div class="forgot-password-header">
+        <h1>Verify Your Account</h1>
+        <p>We sent a verification link to <strong class="verify-email-address">{{ email }}</strong></p>
+        <p>Click <strong>Verify Account</strong> in the email to finish creating your account.</p>
+      </div>
 
-  <form (ngSubmit)="verify()">
-    <div class="form-group">
-      <input
-        type="text"
-        id="code"
-        name="code"
-        class="code-input"
-        inputmode="numeric"
-        autocomplete="one-time-code"
-        maxlength="6"
-        placeholder="000000"
-        [ngModel]="code"
-        (ngModelChange)="onCodeInput($event)"
-        required
-      >
-    </div>
-
-    <button type="submit" class="btn-confirm" [disabled]="code.length !== 6 || isSaving">
-      {{ isSaving ? 'Verifying...' : 'Verify' }}
-    </button>
-  </form>
-
-  <p class="resend-line">
-    Didn't get the code? Check your Spam folder, or
-    @if (resendIn() > 0) {
-      <span class="resend-wait">resend in {{ resendIn() }}s</span>
-    } @else {
-      <a class="resend-link" (click)="resendCode()">resend code</a>
+      <p class="resend-line">
+        Didn't get the email? Check your Spam folder, or
+        @if (resendIn() > 0) {
+          <span class="resend-wait">resend in {{ resendIn() }}s</span>
+        } @else {
+          <a class="resend-link" (click)="resendLink()">resend link</a>
+        }
+      </p>
     }
-  </p>
+    @case ('verifying') {
+      <div class="forgot-password-header">
+        <h1>Verifying...</h1>
+        <p>Please wait while we verify your account.</p>
+      </div>
+    }
+    @case ('failed') {
+      <div class="forgot-password-header">
+        <h1>Verification Failed</h1>
+        <p>{{ message() }}</p>
+      </div>
+      @if (email) {
+        <button type="button" class="btn-confirm" [disabled]="resendIn() > 0" (click)="resendLink()">Send New Link</button>
+      }
+    }
+  }
 
   <div class="back-link">
     <a (click)="goToLogin()">← Back to Login</a>

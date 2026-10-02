@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, MapPin, Phone, UserRound } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, MapPin, Phone, UserRound, Cake, Hourglass } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 
@@ -14,8 +14,11 @@ export interface Participant {
   full_name: string;
   email: string;
   address: string;
+  birthday: string; // YYYY-MM-DD or 'N/A'
+  age: string;      // from the birthday, or 'N/A'
   gender: string;
   contact_number: string;
+  avatar_url?: string;  // '/api/users/{id}/avatar', or '' without a picture
 }
 
 /**
@@ -55,6 +58,8 @@ export class Participants implements OnInit {
   readonly Eye = Eye;
   readonly Mail = Mail;
   readonly MapPin = MapPin;
+  readonly Cake = Cake;
+  readonly Hourglass = Hourglass;
   readonly Phone = Phone;
   readonly UserRound = UserRound;
   readonly Trash2 = Trash2;

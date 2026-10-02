@@ -62,11 +62,8 @@
 
     <!-- Google reCAPTCHA v2 -->
     <div class="captcha-container">
-      <div 
-        class="g-recaptcha" 
-        [attr.data-sitekey]="recaptchaSiteKey"
-        (load)="onRecaptchaLoad()"
-      ></div>
+      <!-- Rendered by renderRecaptcha() with the current theme (no data-sitekey, so Google doesn't auto-render a light one) -->
+      <div class="g-recaptcha"></div>
     </div>
 
     <div class="error-message" *ngIf="errorMessage">

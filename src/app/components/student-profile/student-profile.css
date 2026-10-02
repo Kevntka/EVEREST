@@ -329,12 +329,14 @@
   padding: 30px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-header {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
 }
 
 .edit-btn {
@@ -404,10 +406,12 @@
 }
 
 /* Profile Details */
+/* Rows spread out to fill the card (it's as tall as the avatar card) */
 .profile-details {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  justify-content: space-evenly;
 }
 
 .detail-row {
@@ -415,16 +419,23 @@
   grid-template-columns: 200px 1fr;
   align-items: center;
   gap: 20px;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
 }
 
 .detail-label {
-  font-size: 14px;
+  font-size: 16px;
   color: #6c757d;
   font-weight: 500;
 }
 
 .detail-value {
-  font-size: 14px;
+  font-size: 17px;
   color: #212529;
   font-weight: 500;
 }
@@ -433,7 +444,7 @@
   padding: 10px 14px;
   border: 1px solid #dee2e6;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
   color: #212529;
   background-color: #ffffff;
 }
@@ -494,6 +505,7 @@
   background-color: #3a3a3a;
   border-color: #555555;
   color: #ffffff;
+  color-scheme: dark; /* light calendar icon on the Birthday picker */
 }
 
 :host-context(body.dark-mode) .detail-input:focus {
@@ -513,6 +525,36 @@
 
 :host-context(body.dark-mode) .edit-btn lucide-icon {
   color: #ffffff;
+}
+
+/* While editing, the button is the red primary "Save" button, label always shown */
+.edit-btn.edit-btn--save,
+:host-context(body.dark-mode) .edit-btn.edit-btn--save {
+  justify-content: flex-start;
+  width: 74px;
+  min-width: 74px;
+  gap: 6px;
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.edit-btn.edit-btn--save:hover,
+:host-context(body.dark-mode) .edit-btn.edit-btn--save:hover {
+  background-color: #c82333;
+  border-color: #c82333;
+}
+
+.edit-btn.edit-btn--save lucide-icon,
+:host-context(body.dark-mode) .edit-btn.edit-btn--save lucide-icon {
+  color: #ffffff;
+}
+
+.edit-btn.edit-btn--save span {
+  max-width: 44px;
+  opacity: 1;
+  transform: translateX(0);
 }
 
 
@@ -583,4 +625,25 @@
 /* Profile values are saved in ALL CAPS; show them that way while typing */
 .uppercase-input {
   text-transform: uppercase;
+}
+
+/* Age is worked out from the birthday, so its box is read-only */
+.detail-input[readonly] {
+  background-color: #f1f3f5;
+  color: #6c757d;
+  cursor: default;
+}
+
+.detail-input[readonly]:focus {
+  border-color: #dee2e6;
+}
+
+:host-context(body.dark-mode) .detail-input[readonly] {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #adb5bd;
+}
+
+:host-context(body.dark-mode) .detail-row {
+  border-bottom-color: #404040;
 }

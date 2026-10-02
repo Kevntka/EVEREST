@@ -16,7 +16,8 @@ import {
   Search,
   Key,
   UserCheck,
-  UserMinus
+  UserMinus,
+  UserX
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 
@@ -35,7 +36,7 @@ export interface Attendee {
   yearLevel?: string;
   eventName: string;
   address?: string;
-  status: 'present' | 'not_recorded';
+  status: 'present' | 'absent' | 'not_recorded';
   type: 'student' | 'participant';
 }
 
@@ -80,6 +81,7 @@ export class OrganizerAttendance implements OnInit {
   readonly Search = Search;
   readonly UserCheck = UserCheck;
   readonly UserMinus = UserMinus;
+  readonly UserX = UserX;
   readonly Key = Key;
 
   constructor(
@@ -125,7 +127,7 @@ export class OrganizerAttendance implements OnInit {
       });
   }
 
-  setAttendance(attendee: Attendee, status: 'present' | 'not_recorded'): void {
+  setAttendance(attendee: Attendee, status: Attendee['status']): void {
     if (attendee.status === status) return;
     this.http.put<any>(`http://localhost:8000/api/organizer/attendees/${attendee.id}/attendance`, { status })
       .subscribe({

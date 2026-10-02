@@ -392,7 +392,7 @@
 
 .attendance-table th:last-child,
 .attendance-table td:last-child {
-  min-width: 200px;
+  min-width: 240px; /* room for three buttons with one hovered open */
 }
 
 .action-buttons {
@@ -474,6 +474,31 @@
   opacity: 0.6;
 }
 
+.absent-btn {
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  opacity: 0.6;
+}
+
+.absent-btn.active {
+  background-color: #dc3545;
+  border-color: #c82333;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .absent-btn {
+  background-color: #4c1d1d;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+:host-context(body.dark-mode) .absent-btn.active {
+  background-color: #dc3545;
+  border-color: #f87171;
+  color: #ffffff;
+}
+
 .not-recorded-btn {
   background-color: #e5e7eb;
   border: 1px solid #d1d5db;
@@ -482,6 +507,7 @@
 }
 
 .present-btn:hover,
+.absent-btn:hover,
 .not-recorded-btn:hover,
 .action-btn.active {
   opacity: 1;

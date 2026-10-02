@@ -206,11 +206,6 @@
   align-items: center;
 }
 
-:host-context(body.dark-mode) .captcha-container > div {
-  filter: invert(0.88) hue-rotate(180deg) brightness(1.1) contrast(0.9) saturate(1.2);
-  border-radius: 4px;
-}
-
 .error-message {
   background-color: #ffebee;
   color: #c62828;
@@ -343,4 +338,18 @@
 
 :host-context(body.dark-mode) .password-toggle:hover {
   color: #ffffff;
+}
+
+/* Red tint over the background photo (added on top of the dark ::before layer; clicks pass through) */
+:host::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(220, 53, 69, 0.22);
+  z-index: 0;
+  pointer-events: none;
+}
+
+:host-context(body.dark-mode)::after {
+  background: rgba(220, 53, 69, 0.12);
 }

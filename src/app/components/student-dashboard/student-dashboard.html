@@ -82,7 +82,7 @@
               <option value="">Status</option>
               <option value="open">Open</option>
               <option value="full">Full</option>
-              <option value="close">Close</option>
+              <option value="closed">Closed</option>
             </select>
           </div>
 
@@ -101,8 +101,8 @@
                 <p class="event-detail">{{ event.availableSlots }} Available Slot</p>
               </div>
               <div class="event-actions">
-                <span class="status-badge" [class]="'status-' + event.status.toLowerCase()">
-                  {{ event.status }}
+                <span class="status-badge" [class]="'status-' + badgeStatus(event)">
+                  {{ badgeStatus(event) }}
                 </span>
                 <button class="btn-view-details" (click)="viewEventDetails(event)">
                   View Details
@@ -132,13 +132,6 @@
                 [(ngModel)]="searchQueryRight"
               />
             </div>
-
-            <select class="status-select" [(ngModel)]="selectedStatusRight">
-              <option value="">Status</option>
-              <option value="open">Open</option>
-              <option value="full">Full</option>
-              <option value="close">Close</option>
-            </select>
           </div>
 
           <div class="events-list">
@@ -154,10 +147,11 @@
                 <p class="event-detail">{{ event.date }} | {{ event.time }}</p>
                 <p class="event-detail">{{ event.venue }}</p>
                 <p class="event-detail">{{ event.availableSlots }} Available Slot</p>
+                <p class="event-detail registration-opens">Registration opens {{ formatShortDate(event.opensOn) }}</p>
               </div>
               <div class="event-actions">
-                <span class="status-badge" [class]="'status-' + event.status.toLowerCase()">
-                  {{ event.status }}
+                <span class="status-badge" [class]="'status-' + badgeStatus(event, true)">
+                  {{ badgeStatus(event, true) }}
                 </span>
                 <button class="btn-view-details" (click)="viewEventDetails(event)">
                   View Details

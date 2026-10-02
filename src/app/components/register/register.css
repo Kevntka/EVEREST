@@ -286,3 +286,17 @@
     margin: 20px;
   }
 }
+
+/* Red tint over the background photo (added on top of the dark ::before layer; clicks pass through) */
+:host::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(220, 53, 69, 0.22);
+  z-index: 0;
+  pointer-events: none;
+}
+
+:host-context(body.dark-mode)::after {
+  background: rgba(220, 53, 69, 0.12);
+}

@@ -141,7 +141,13 @@
   <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
     <div class="modal-content details-modal" (click)="$event.stopPropagation()" *ngIf="selectedStudent">
       <div class="details-header">
-        <div class="details-avatar">{{ selectedStudent.full_name.charAt(0).toUpperCase() }}</div>
+        <div class="details-avatar">
+          @if (selectedStudent.avatar_url) {
+            <img [src]="'http://localhost:8000' + selectedStudent.avatar_url" alt="Profile picture" />
+          } @else {
+            {{ selectedStudent.full_name.charAt(0).toUpperCase() }}
+          }
+        </div>
         <div class="details-identity">
           <h2 class="details-name">{{ selectedStudent.full_name }}</h2>
           <span class="details-role">Student</span>
@@ -153,8 +159,16 @@
 
       <div class="details-list">
           <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="IdCard" [size]="16"></lucide-icon>SR Code</span>
+            <span class="details-value">{{ selectedStudent.sr_code || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
             <span class="details-label"><lucide-icon [img]="Building2" [size]="16"></lucide-icon>Department</span>
             <span class="details-value">{{ selectedStudent.department || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="BookOpen" [size]="16"></lucide-icon>Program</span>
+            <span class="details-value">{{ selectedStudent.program || 'N/A' }}</span>
           </div>
           <div class="details-row">
             <span class="details-label"><lucide-icon [img]="GraduationCap" [size]="16"></lucide-icon>Year Level</span>

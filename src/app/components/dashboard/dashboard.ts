@@ -8,6 +8,7 @@ import { DialogService } from '../../services/dialog.service';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { displayStatus, registrationOpensOn } from '../../utils/registration';
 export interface Event {
   id: number;
   event_name: string;
@@ -19,6 +20,8 @@ export interface Event {
   status: string;
   cover_photo: string;
   enrolled_count: number;
+  registration_start?: string | null;
+  registration_end?: string | null;
 }
 
 /**
@@ -64,6 +67,12 @@ export class Dashboard implements OnInit {
   readonly CalendarX = CalendarX;
   readonly Eye = Eye;
   readonly Trash2 = Trash2;
+
+  /** Upcoming / Open / Full / Closed, as on the organizer's and student's pages. */
+  badgeStatus(event: Event): string {
+    return displayStatus(event.status, registrationOpensOn(event.registration_start, event.event_date),
+      event.enrolled_count || 0, event.capacity, event.registration_end);
+  }
 
   constructor(
     private router: Router, 

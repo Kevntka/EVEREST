@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, Building2, Phone, UserRound } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, Building2, Phone, UserRound, IdCard, BookOpen } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 
@@ -13,10 +13,13 @@ export interface Student {
   id: number;
   full_name: string;
   email: string;
+  sr_code: string;
   department: string;
+  program: string;
   year_level: string;
   gender: string;
   contact_number: string;
+  avatar_url?: string;  // '/api/users/{id}/avatar', or '' without a picture
 }
 
 /**
@@ -47,6 +50,8 @@ export class Students implements OnInit {
   readonly Calendar = Calendar;
   readonly User = User;
   readonly GraduationCap = GraduationCap;
+  readonly IdCard = IdCard;
+  readonly BookOpen = BookOpen;
   readonly Users = Users;
   readonly Menu = Menu;
   readonly Moon = Moon;

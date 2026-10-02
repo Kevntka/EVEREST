@@ -105,6 +105,11 @@
   color: #047857;
 }
 
+.attendance-badge.absent {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
 .my-events-table .btn-view-details {
   padding: 6px 16px;
   font-size: 13px;
@@ -190,6 +195,11 @@
 :host-context(body.dark-mode) .attendance-badge.present {
   background-color: #064e3b;
   color: #6ee7b7;
+}
+
+:host-context(body.dark-mode) .attendance-badge.absent {
+  background-color: #4c1d1d;
+  color: #fca5a5;
 }
 
 :host-context(body.dark-mode) .table-pagination {

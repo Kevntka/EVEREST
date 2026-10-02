@@ -76,9 +76,10 @@
 
           <select class="status-select" [(ngModel)]="selectedStatus">
             <option value="">Status</option>
+            <option value="upcoming">Upcoming</option>
             <option value="open">Open</option>
             <option value="full">Full</option>
-            <option value="close">Close</option>
+            <option value="closed">Closed</option>
           </select>
         </div>
 
@@ -182,6 +183,59 @@
         </div>
 
         <div class="form-row">
+          <!-- Enrolling is allowed from the start to the end date; before it the event shows as Upcoming -->
+          <div class="form-field">
+            <label class="form-label">Registration</label>
+            <div class="time-range">
+              <input 
+                type="date" 
+                class="form-input"
+                [(ngModel)]="newEvent.registrationStart"
+                name="registrationStart"
+                aria-label="Registration start date"
+                [max]="newEvent.registrationEnd || newEvent.date"
+                required
+              />
+              <span class="time-range-sep">to</span>
+              <input 
+                type="date" 
+                class="form-input"
+                [(ngModel)]="newEvent.registrationEnd"
+                name="registrationEnd"
+                aria-label="Registration end date"
+                [min]="newEvent.registrationStart"
+                [max]="newEvent.date"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Start and end share the one Time field; the event auto-closes after the end time -->
+          <div class="form-field">
+            <label class="form-label">Time</label>
+            <div class="time-range">
+              <input 
+                type="time" 
+                class="form-input"
+                [(ngModel)]="newEvent.time"
+                name="time"
+                aria-label="Start time"
+                required
+              />
+              <span class="time-range-sep">to</span>
+              <input 
+                type="time" 
+                class="form-input"
+                [(ngModel)]="newEvent.endTime"
+                name="endTime"
+                aria-label="End time"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-field">
             <label class="form-label">Start Date</label>
             <input 
@@ -189,30 +243,6 @@
               class="form-input"
               [(ngModel)]="newEvent.date"
               name="date"
-              required
-            />
-          </div>
-
-          <div class="form-field">
-            <label class="form-label">Time</label>
-            <input 
-              type="time" 
-              class="form-input"
-              [(ngModel)]="newEvent.time"
-              name="time"
-              required
-            />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label">Registration Deadline</label>
-            <input 
-              type="date" 
-              class="form-input"
-              [(ngModel)]="newEvent.registrationDeadline"
-              name="registrationDeadline"
               required
             />
           </div>
@@ -233,13 +263,13 @@
         <div class="form-row">
           <div class="form-field">
             <label class="form-label">Department</label>
-            <select class="form-input" [(ngModel)]="newEvent.department" name="department">
-              <option value="">Select Department</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Information Technology">Information Technology</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Business">Business</option>
-            </select>
+            <input
+              type="text"
+              class="form-input"
+              [(ngModel)]="newEvent.department"
+              name="department"
+              maxlength="150"
+            />
           </div>
 
           <div class="form-field">

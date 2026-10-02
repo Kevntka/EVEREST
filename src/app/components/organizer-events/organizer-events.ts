@@ -26,6 +26,7 @@ import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { PasswordChecklist } from '../password-checklist/password-checklist';
 import { Paginator } from '../../utils/paginator';
+import { displayStatus, registrationOpensOn } from '../../utils/registration';
 export interface Event {
   id: number;
   title: string;
@@ -36,7 +37,8 @@ export interface Event {
   venue: string;
   currentCapacity: number;
   maxCapacity: number;
-  registrationDeadline: string;
+  registrationStart: string;  // YYYY-MM-DD; enrolling opens on this date
+  registrationEnd: string;    // YYYY-MM-DD; last day to enroll
   department: string;
   status: string;
   coverPhoto?: string;
@@ -73,9 +75,11 @@ export class OrganizerEvents implements OnInit {
     aboutEvent: '',
     date: '',
     time: '',
+    endTime: '',
     venue: '',
     capacity: 0,
-    registrationDeadline: '',
+    registrationStart: '',
+    registrationEnd: '',
     department: '',
     coverPhoto: null as File | null
   };
@@ -140,9 +144,10 @@ export class OrganizerEvents implements OnInit {
             venue: evt.venue,
             currentCapacity: evt.enrolled_count || 0,
             maxCapacity: evt.capacity,
-            registrationDeadline: '',
+            registrationStart: evt.registration_start || '',
+            registrationEnd: evt.registration_end || '',
             department: '',
-            status: evt.status,
+            status: displayStatus(evt.status, registrationOpensOn(evt.registration_start, evt.event_date), evt.enrolled_count || 0, evt.capacity, evt.registration_end),
             coverPhoto: evt.cover_photo ? `http://localhost:8000${evt.cover_photo}` : ''
           })) || [];
         },
@@ -197,9 +202,11 @@ export class OrganizerEvents implements OnInit {
       aboutEvent: '',
       date: '',
       time: '',
+      endTime: '',
       venue: '',
       capacity: 0,
-      registrationDeadline: '',
+      registrationStart: '',
+    registrationEnd: '',
       department: '',
       coverPhoto: null
     };
@@ -213,11 +220,38 @@ export class OrganizerEvents implements OnInit {
   }
 
   createEvent(): void {
+    // "HH:MM" strings compare correctly as text
+    if (!this.newEvent.time || !this.newEvent.endTime) {
+      this.dialog.error('Check your input', 'Please enter the start and end time.');
+      return;
+    }
+    if (this.newEvent.endTime <= this.newEvent.time) {
+      this.dialog.error('Check your input', 'End time must be after the start time.');
+      return;
+    }
+    // "YYYY-MM-DD" strings compare correctly as text
+    const { registrationStart, registrationEnd, date } = this.newEvent;
+    if (!registrationStart || !registrationEnd) {
+      this.dialog.error('Check your input', 'Please enter the registration start and end dates.');
+      return;
+    }
+    if (registrationEnd < registrationStart) {
+      this.dialog.error('Check your input', "Registration end can't be before the registration start.");
+      return;
+    }
+    if (date && registrationEnd > date) {
+      this.dialog.error('Check your input', 'Registration must end on or before the event date.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('event_name', this.newEvent.title);
     formData.append('event_description', this.newEvent.description);
     formData.append('event_date', this.newEvent.date);
     formData.append('event_time', this.newEvent.time);
+    formData.append('event_end_time', this.newEvent.endTime);
+    formData.append('registration_start', this.newEvent.registrationStart);
+    formData.append('registration_end', this.newEvent.registrationEnd);
     formData.append('venue', this.newEvent.venue);
     formData.append('department', this.newEvent.department);
     formData.append('about_event', this.newEvent.aboutEvent);
@@ -261,9 +295,11 @@ export class OrganizerEvents implements OnInit {
             aboutEvent: evt.about_event || '',
             date: evt.event_date || '',
             time: (evt.event_time || '').slice(0, 5),
+            endTime: (evt.event_end_time || '').slice(0, 5),
             venue: evt.venue || '',
             capacity: evt.capacity || 0,
-            registrationDeadline: '',
+            registrationStart: evt.registration_start || '',
+            registrationEnd: evt.registration_end || '',
             department: evt.department || '',
             coverPhoto: null
           };

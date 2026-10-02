@@ -481,31 +481,46 @@
 
 /* Status Badge */
 .status-badge {
-  padding: 4px 12px;
+  display: inline-block;
+  padding: 6px 10px;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   text-transform: capitalize;
+  /* Same width for Open / Closed / Cancelled */
+  min-width: 76px;
+  box-sizing: border-box;
+  text-align: center;
 }
 
+/* Same badges on admin Dashboard, Organizer Events and the student dashboard */
 .status-open {
-  background: #d1fae5;
-  color: #065f46;
+  background-color: rgba(52, 211, 153, 0.2);
+  color: #10b981;
 }
 
-.status-closed {
-  background: #fee2e2;
-  color: #991b1b;
+.status-closed,
+.status-full {
+  background-color: rgba(248, 113, 113, 0.2);
+  color: #ef4444;
 }
 
-:host-context(body.dark-mode) .status-open {
-  background: #064e3b;
-  color: #6ee7b7;
+.status-upcoming {
+  background-color: rgba(96, 165, 250, 0.2);
+  color: #3b82f6;
 }
 
-:host-context(body.dark-mode) .status-closed {
-  background: #7f1d1d;
-  color: #fca5a5;
+:host-context(body.dark-mode) .status-upcoming {
+  color: #60a5fa;
+}
+
+.status-cancelled {
+  background-color: rgba(156, 163, 175, 0.2);
+  color: #6b7280;
+}
+
+:host-context(body.dark-mode) .status-cancelled {
+  color: #9ca3af;
 }
 
 /* Action buttons: same icon-only buttons with slide-out labels as the other admin tables */

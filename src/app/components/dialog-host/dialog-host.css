@@ -50,12 +50,11 @@
   color: #f27474;
 }
 
-/* Warning mockup: solid yellow circle */
+/* Outlined like success/error */
 .dialog-icon--confirm,
 .dialog-icon--warning {
-  background-color: #f8df8b;
-  border-color: #eed080;
-  color: #b8860b;
+  border-color: #facea8;
+  color: #f8bb86;
 }
 
 /* lucide-icon is inline by default and sits on the text baseline */
@@ -147,6 +146,11 @@
 
 :host-context(body.dark-mode) .dialog-icon--error {
   border-color: #5a3030;
+}
+
+:host-context(body.dark-mode) .dialog-icon--confirm,
+:host-context(body.dark-mode) .dialog-icon--warning {
+  border-color: #5a4630;
 }
 
 :host-context(body.dark-mode) .dialog-btn--cancel {

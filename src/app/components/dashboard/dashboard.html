@@ -128,9 +128,8 @@
               <td>{{ event.capacity }}</td>
               <td>{{ event.enrolled_count }}</td>
               <td>
-                <span class="status-badge" [class.status-open]="event.status === 'open'" 
-                      [class.status-closed]="event.status === 'closed'">
-                  {{ event.status }}
+                <span class="status-badge" [ngClass]="'status-' + badgeStatus(event)">
+                  {{ badgeStatus(event) }}
                 </span>
               </td>
               <td>

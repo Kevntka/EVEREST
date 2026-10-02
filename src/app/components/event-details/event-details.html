@@ -60,6 +60,12 @@
               <lucide-icon [img]="MapPin" [size]="16" class="meta-icon"></lucide-icon>
               <span>{{ event.venue }}</span>
             </p>
+            <p class="meta-item" *ngIf="event.opensOn">
+              <lucide-icon [img]="CalendarClock" [size]="16" class="meta-icon"></lucide-icon>
+              <span>
+                Registration: {{ formatShortDate(event.opensOn) }}{{ event.closesOn ? ' - ' + formatShortDate(event.closesOn) : '' }}
+              </span>
+            </p>
             <p class="meta-item" *ngIf="event.department">
               <lucide-icon [img]="Building2" [size]="16" class="meta-icon"></lucide-icon>
               <span>{{ event.department }}</span>
@@ -84,14 +90,38 @@
             </div>
           </div>
 
-          <!-- Enroll Button -->
-          <button 
-            class="enroll-btn" 
-            (click)="enrollInEvent()"
-            [disabled]="event.slotsAvailable === 0"
-          >
-            {{ event.slotsAvailable === 0 ? 'Event Full' : 'Enroll' }}
-          </button>
+          <!-- Enroll Button (students/participants only; admins open this page to view) -->
+          @if (canEnroll) {
+            @if (isEnrolled) {
+              <p class="enrolled-note">You're enrolled in this event.</p>
+              @if (attendance === 'present' || attendance === 'absent') {
+                <p class="attendance-note" [class.absent]="attendance === 'absent'">
+                  Attendance: {{ attendance === 'present' ? 'Present' : 'Absent' }}
+                </p>
+              }
+              <!-- Cancelling is only possible during the registration period -->
+              @if (canCancel) {
+                <button 
+                  class="enroll-btn cancel-enroll-btn" 
+                  (click)="cancelEnrollment()"
+                  [disabled]="enrollBusy"
+                >
+                  {{ enrollBusy ? 'Cancelling...' : 'Cancel Enrollment' }}
+                </button>
+              }
+            } @else {
+              <button 
+                class="enroll-btn" 
+                (click)="enrollInEvent()"
+                [disabled]="event.status !== 'open' || !registrationOpen || registrationOver || event.slotsAvailable <= 0 || enrollBusy"
+              >
+                {{ event.status !== 'open' ? 'Event Closed'
+                   : !registrationOpen ? 'Registration opens ' + formatShortDate(event.opensOn)
+                   : registrationOver ? 'Registration Closed'
+                   : event.slotsAvailable <= 0 ? 'Event Full' : enrollBusy ? 'Enrolling...' : 'Enroll' }}
+              </button>
+            }
+          }
         </div>
       </div>
     </div>

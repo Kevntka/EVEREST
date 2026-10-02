@@ -5,7 +5,7 @@
       <div class="logo-circle">
         <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
       </div>
-      <h3 class="admin-title">Student</h3>
+      <h3 class="admin-title">{{ roleLabel }}</h3>
     </div>
 
     <nav class="nav-menu">
@@ -93,8 +93,8 @@
         <div class="right-column">
           <div class="profile-card">
             <div class="card-header">
-              <button class="edit-btn" (click)="toggleEdit()" [attr.aria-label]="isEditing ? 'Save profile' : 'Edit profile'">
-                <lucide-icon [img]="Pencil" [size]="16"></lucide-icon>
+              <button class="edit-btn" [class.edit-btn--save]="isEditing" (click)="toggleEdit()" [attr.aria-label]="isEditing ? 'Save profile' : 'Edit profile'">
+                <lucide-icon [img]="isEditing ? Check : Pencil" [size]="16"></lucide-icon>
                 <span>{{ isEditing ? 'Save' : 'Edit' }}</span>
               </button>
             </div>
@@ -106,54 +106,102 @@
                 <input 
                   *ngIf="isEditing" 
                   class="detail-input uppercase-input" 
-                  [(ngModel)]="profile.fullName"
+                  maxlength="150"
+                  [ngModel]="profile.fullName"
+                  (input)="profile.fullName = clean($event, lettersOnly)"
                 />
               </div>
 
-              <div class="detail-row">
-                <div class="detail-label">Sr-code</div>
-                <div class="detail-value" *ngIf="!isEditing">{{ profile.srCode }}</div>
-                <input 
-                  *ngIf="isEditing" 
-                  class="detail-input uppercase-input" 
-                  [(ngModel)]="profile.srCode"
-                />
-              </div>
+              @if (isStudent) {
+                <div class="detail-row">
+                  <div class="detail-label">Sr-code</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ profile.srCode }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input" 
+                    inputmode="numeric"
+                    maxlength="8"
+                    placeholder="23-30046"
+                    [ngModel]="profile.srCode"
+                    (input)="profile.srCode = clean($event, formatSrCode)"
+                  />
+                </div>
 
-              <div class="detail-row">
-                <div class="detail-label">College / Department</div>
-                <div class="detail-value" *ngIf="!isEditing">{{ profile.collegeDepartment }}</div>
-                <input 
-                  *ngIf="isEditing" 
-                  class="detail-input uppercase-input" 
-                  [(ngModel)]="profile.collegeDepartment"
-                />
-              </div>
+                <div class="detail-row">
+                  <div class="detail-label">College / Department</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ profile.collegeDepartment }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input uppercase-input" 
+                    maxlength="150"
+                    [ngModel]="profile.collegeDepartment"
+                    (input)="profile.collegeDepartment = clean($event, lettersOnly)"
+                  />
+                </div>
 
-              <div class="detail-row">
-                <div class="detail-label">Program</div>
-                <div class="detail-value" *ngIf="!isEditing">{{ profile.program }}</div>
-                <input 
-                  *ngIf="isEditing" 
-                  class="detail-input uppercase-input" 
-                  [(ngModel)]="profile.program"
-                />
-              </div>
+                <div class="detail-row">
+                  <div class="detail-label">Program</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ profile.program }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input uppercase-input" 
+                    maxlength="150"
+                    [ngModel]="profile.program"
+                    (input)="profile.program = clean($event, lettersOnly)"
+                  />
+                </div>
 
-              <div class="detail-row">
-                <div class="detail-label">Year Level</div>
-                <div class="detail-value" *ngIf="!isEditing">{{ profile.yearLevel }}</div>
-                <select 
-                  *ngIf="isEditing" 
-                  class="detail-input" 
-                  [(ngModel)]="profile.yearLevel"
-                >
-                  <option value="">SELECT YEAR LEVEL</option>
-                  @for (level of yearLevels; track level) {
-                    <option [value]="level">{{ level }}</option>
-                  }
-                </select>
-              </div>
+                <div class="detail-row">
+                  <div class="detail-label">Year Level</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ profile.yearLevel }}</div>
+                  <select 
+                    *ngIf="isEditing" 
+                    class="detail-input" 
+                    [(ngModel)]="profile.yearLevel"
+                  >
+                    <option value="">SELECT YEAR LEVEL</option>
+                    @for (level of yearLevels; track level) {
+                      <option [value]="level">{{ level }}</option>
+                    }
+                  </select>
+                </div>
+              } @else {
+                <div class="detail-row">
+                  <div class="detail-label">Address</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ profile.address }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input uppercase-input" 
+                    [(ngModel)]="profile.address"
+                  />
+                </div>
+
+                <div class="detail-row">
+                  <div class="detail-label">Birthday</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ formatBirthday(profile.birthday) }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input" 
+                    type="date"
+                    min="1900-01-01"
+                    [max]="today"
+                    [(ngModel)]="profile.birthday"
+                  />
+                </div>
+
+                <div class="detail-row">
+                  <div class="detail-label">Age</div>
+                  <div class="detail-value" *ngIf="!isEditing">{{ ageFrom(profile.birthday) }}</div>
+                  <input 
+                    *ngIf="isEditing" 
+                    class="detail-input" 
+                    readonly
+                    tabindex="-1"
+                    placeholder="SET YOUR BIRTHDAY"
+                    [value]="ageFrom(profile.birthday)"
+                  />
+                </div>
+              }
 
               <div class="detail-row">
                 <div class="detail-label">Gender</div>
@@ -180,7 +228,7 @@
                   maxlength="13"
                   placeholder="0912-345-6789"
                   [ngModel]="profile.contactNumber"
-                  (ngModelChange)="profile.contactNumber = formatContactNumber($event)"
+                  (input)="profile.contactNumber = clean($event, formatContactNumber)"
                 />
               </div>
             </div>

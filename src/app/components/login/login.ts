@@ -51,7 +51,7 @@ export class Login implements OnInit, AfterViewInit {
     }
 
     const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
+    script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -63,7 +63,8 @@ export class Login implements OnInit, AfterViewInit {
 
   renderRecaptcha() {
     if (this.recaptchaLoaded && typeof grecaptcha !== 'undefined') {
-      setTimeout(() => {
+      // ready() waits until render() is usable (onload can fire before that)
+      grecaptcha.ready(() => {
         this.ngZone.runOutsideAngular(() => {
           const elements = document.getElementsByClassName('g-recaptcha');
           if (elements.length > 0) {
@@ -88,12 +89,8 @@ export class Login implements OnInit, AfterViewInit {
             }
           }
         });
-      }, 150);
+      });
     }
-  }
-
-  onRecaptchaLoad() {
-    this.renderRecaptcha();
   }
 
   getRecaptchaResponse(): string | null {
@@ -170,7 +167,7 @@ export class Login implements OnInit, AfterViewInit {
             grecaptcha.reset(this.recaptchaWidgetId);
           }
           
-          // Unverified student/participant: go verify (a fresh code is sent there)
+          // Unverified student/participant: go verify (a fresh link is sent there)
           if (error.status === 403 && error.error?.verification_required) {
             this.errorMessage = '';
             this.router.navigate(['/verify-email'], { queryParams: { email: error.error.email, resend: 1 } });

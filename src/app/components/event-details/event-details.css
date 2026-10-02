@@ -302,6 +302,58 @@
   cursor: not-allowed;
 }
 
+/* Shown instead of Enroll once the user is enrolled (secondary, gray) */
+.enrolled-note {
+  margin: 10px 0 0;
+  color: #198754;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cancel-enroll-btn {
+  background-color: #e9ecef;
+  color: #495057;
+  border: 1px solid #ced4da;
+}
+
+.cancel-enroll-btn:hover:not(:disabled) {
+  background-color: #dee2e6;
+}
+
+:host-context(body.dark-mode) .enrolled-note {
+  color: #75b798;
+}
+
+:host-context(body.dark-mode) .cancel-enroll-btn {
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border-color: #555555;
+}
+
+:host-context(body.dark-mode) .cancel-enroll-btn:hover:not(:disabled) {
+  background-color: #454545;
+}
+
+/* Attendance the organizer recorded */
+.attendance-note {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #198754;
+}
+
+.attendance-note.absent {
+  color: #dc3545;
+}
+
+:host-context(body.dark-mode) .attendance-note {
+  color: #75b798;
+}
+
+:host-context(body.dark-mode) .attendance-note.absent {
+  color: #ff6b6b;
+}
+
 /* Loading State */
 .loading-state {
   flex: 1;

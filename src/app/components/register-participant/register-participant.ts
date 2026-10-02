@@ -56,6 +56,17 @@ export class RegisterParticipant implements OnInit {
     }
   }
 
+  /** Digits only, formatted as 0912-345-6789 as the user types. */
+  onContactInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '').slice(0, 11);
+    const value = digits.length <= 4 ? digits
+      : digits.length <= 7 ? `${digits.slice(0, 4)}-${digits.slice(4)}`
+      : `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    if (input.value !== value) input.value = value;
+    this.contactNumber = value;
+  }
+
   onSubmit() {
     // Validate passwords match
     if (this.password !== this.confirmPassword) {
@@ -85,13 +96,13 @@ export class RegisterParticipant implements OnInit {
           sessionStorage.removeItem('fullName');
           sessionStorage.removeItem('role');
 
-          // Account is created only after the emailed 6-digit code is verified
+          // Account is created only after the emailed Verify Account link is opened
           if (response.email_sent) {
-            this.dialog.success('Code Sent!', `We sent a 6-digit verification code to ${response.user.email}. Enter it on the next page to finish creating your account.
+            this.dialog.success('Check Your Email', `We sent a verification link to ${response.user.email}. Click Verify Account in the email to finish creating your account.
 If you don't see it in your inbox, check your Spam folder.`);
           } else {
             this.dialog.warning('Email Not Sent',
-              'We could not send your verification code. Use "resend code" on the next page to finish creating your account.');
+              'We could not send your verification link. Use "resend link" on the next page to finish creating your account.');
           }
           this.goToVerify(response.user.email);
         },
@@ -99,7 +110,7 @@ If you don't see it in your inbox, check your Spam folder.`);
           console.error('Registration failed', error);
           if (error.error?.verification_required) {
             // Registered before but never verified
-            this.dialog.warning('Verify Your Email', error.error.detail);
+            this.dialog.warning('Verify Your Account', error.error.detail);
             this.goToVerify(error.error.email);
             return;
           }
