@@ -27,9 +27,24 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_data BYTEA;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_photo_type VARCHAR(100);
 
 -- Student/participant profile fields (edited on the Profile page)
+-- Event end time (events auto-close once it passes)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_end_time TIME;
+
+-- Enrolling opens on this date (NULL: on the event date)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_start DATE;
+-- Last day to enroll (NULL: until the event ends)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_end DATE;
+
+-- (profile fields)
 ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS gender VARCHAR(30);
 ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS year_level VARCHAR(20);
 ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS program VARCHAR(150);
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS birthday DATE;
+
+-- Profile picture bytes (served by GET /api/users/{id}/avatar)
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS avatar_data BYTEA;
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS avatar_type VARCHAR(100);
 
 -- Student/participant sign-ups waiting for their 6-digit email code (SHA-256 hash only).
 -- The real account is created in users only after the code is verified.

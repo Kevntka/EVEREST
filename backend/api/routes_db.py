@@ -6,11 +6,12 @@ Matching the actual database schema
 from fastapi import APIRouter, Form, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from database.config import get_db
 from models.user import User, UserRole, Department, Attendee, Event, Registration
 from models.auth import set_user_password, get_user_password
 from auth.jwt_handler import create_access_token, get_current_user, require_role, verify_password as verify_bcrypt_password
-from datetime import timedelta
+from datetime import date, timedelta
 from pydantic import BaseModel
 from typing import Optional
 import re
@@ -32,8 +33,11 @@ def require_password(password: str) -> None:
         raise HTTPException(status_code=400, detail="Password is required.")
 
 
-def generate_strong_password(length: int = 12) -> str:
-    """Random 12-character password with upper, lower, number and symbol (for new organizers)."""
+def generate_strong_password(length: int = 8) -> str:
+    """
+    Random 8-character password for new organizers: always at least one uppercase letter
+    (A-Z), one lowercase letter, one number and one symbol; the rest are random from all four.
+    """
     import secrets
     import string
     pools = [string.ascii_uppercase, string.ascii_lowercase, string.digits, PASSWORD_SYMBOLS]
@@ -134,6 +138,11 @@ async def login(
                                  {"e": email}).first()
             if pending and verify_bcrypt_password(password, pending.password_hash):
                 return _unverified_response(email, "Please verify your email before logging in.")
+            if not pending:
+                raise HTTPException(
+                    status_code=404,
+                    detail="This account is not registered yet. Please create an account first."
+                )
             raise HTTPException(status_code=401, detail="Invalid email or password")
         
         # Verify password - check database password field
@@ -215,12 +224,12 @@ async def logout():
 
 
 
-# --- Email verification (6-digit code) for students and participants ---
-# Registrations wait in pending_registrations until the code is verified; only then
-# is the account created in users/user_roles. Unverified sign-ups never appear in
-# admin lists, counts or login.
-VERIFICATION_CODE_TTL_MINUTES = 15
-VERIFICATION_MAX_ATTEMPTS = 5
+# --- Email verification (link) for students and participants ---
+# Registrations wait in pending_registrations until the emailed "Verify Account" link
+# is opened; only then is the account created in users/user_roles. Unverified sign-ups
+# never appear in admin lists, counts or login. pending_registrations.code_hash holds
+# the SHA-256 of the link's token.
+VERIFICATION_LINK_TTL_HOURS = 24
 VERIFICATION_RESEND_SECONDS = 60
 PENDING_REGISTRATION_TTL_HOURS = 24
 SELF_REGISTERED_ROLES = ("student", "participant")
@@ -231,9 +240,13 @@ def _hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
 
 
-def _new_code() -> str:
+def _new_token() -> str:
     import secrets
-    return f"{secrets.randbelow(1_000_000):06d}"
+    return secrets.token_urlsafe(32)
+
+
+def _verification_link(token: str) -> str:
+    return f"http://localhost:4200/verify-email?token={token}"
 
 
 def _unverified_response(email: str, message: str, status_code: int = 403) -> JSONResponse:
@@ -249,12 +262,12 @@ async def _start_pending_registration(
     department: Optional[str] = None, contact_number: Optional[str] = None
 ) -> JSONResponse:
     """
-    Save (or replace) a pending registration and email its 6-digit code.
+    Save (or replace) a pending registration and email its verification link.
     Nothing is written to users until /verify-email succeeds.
     """
     from sqlalchemy import text
     from auth.jwt_handler import hash_password
-    from services.email_service import send_verification_code_email
+    from services.email_service import send_verification_link_email
 
     email = email.strip().lower()
     if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
@@ -277,11 +290,11 @@ async def _start_pending_registration(
         db.commit()
         return _unverified_response(
             email,
-            "We already sent a verification code to this email. Enter it on the next page, or request a new one.",
+            "We already sent a verification link to this email. Open it to verify your account, or request a new one.",
             status_code=409
         )
 
-    code = _new_code()
+    token = _new_token()
     db.execute(text("DELETE FROM pending_registrations WHERE email = :e"), {"e": email})
     db.execute(text(f"""
         INSERT INTO pending_registrations (
@@ -289,7 +302,7 @@ async def _start_pending_registration(
             code_hash, expires_at, attempts, last_sent_at
         ) VALUES (
             :email, :full_name, :role, :password_hash, :department, :contact_number,
-            :code_hash, NOW() + INTERVAL '{VERIFICATION_CODE_TTL_MINUTES} minutes', 0, NOW()
+            :code_hash, NOW() + INTERVAL '{VERIFICATION_LINK_TTL_HOURS} hours', 0, NOW()
         )
     """), {
         "email": email,
@@ -298,16 +311,16 @@ async def _start_pending_registration(
         "password_hash": hash_password(password),
         "department": (department or "").strip() or None,
         "contact_number": (contact_number or "").strip() or None,
-        "code_hash": _hash_code(code),
+        "code_hash": _hash_code(token),
     })
     db.commit()
 
-    email_sent = await send_verification_code_email(email, full_name.strip(), code)
+    email_sent = await send_verification_link_email(email, full_name.strip(), _verification_link(token))
     return JSONResponse(
         status_code=200,
         content={
             "success": True,
-            "message": "Enter the 6-digit code we sent to your email to finish creating your account",
+            "message": "Open the link we sent to your email to finish creating your account",
             "verification_required": True,
             "email_sent": email_sent,
             "user": {"full_name": full_name.strip(), "email": email}
@@ -373,7 +386,7 @@ async def create_organizer(
         # Generate random password
         import random
         import string
-        random_password = generate_strong_password(12)
+        random_password = generate_strong_password(8)
         
         # Hash password
         from auth.jwt_handler import hash_password
@@ -609,10 +622,13 @@ def get_students(db: Session = Depends(get_db)):
             "id": user.id,
             "full_name": user.full_name,
             "email": user.email,
+            "sr_code": (user_role.student_number if user_role else None) or "N/A",
             "department": dept.department_name if dept else "N/A",
+            "program": (user_role.program if user_role else None) or "N/A",
             "year_level": (user_role.year_level if user_role else None) or "N/A",
             "gender": (user_role.gender if user_role else None) or "N/A",
-            "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
+            "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A",
+            "avatar_url": _avatar_url(user.id, user_role)
         })
     
     return {
@@ -665,9 +681,12 @@ def get_participants(db: Session = Depends(get_db)):
             "id": user.id,
             "full_name": user.full_name,
             "email": user.email,
-            "address": "N/A",
+            "address": (user_role.address if user_role else None) or "N/A",
+            "birthday": user_role.birthday.isoformat() if user_role and user_role.birthday else "N/A",
+            "age": (_age(user_role.birthday) if user_role else "") or "N/A",
             "gender": (user_role.gender if user_role else None) or "N/A",
-            "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
+            "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A",
+            "avatar_url": _avatar_url(user.id, user_role)
         })
     
     return {
@@ -857,6 +876,66 @@ from fastapi import File, UploadFile
 MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
+def _close_finished_events(db: Session) -> None:
+    """
+    Close open events whose end time has passed (start time if there is no end
+    time, end of day if there is no time at all). Runs before events are read or
+    enrolled in, so the stored status is always current. "Now" is the server's
+    local time, matching the local date/time the organizer entered.
+    """
+    from sqlalchemy import text
+    from datetime import datetime
+
+    result = db.execute(text("""
+        UPDATE events SET status = 'closed', updated_at = NOW()
+        WHERE status = 'open' AND event_date IS NOT NULL
+          AND event_date + COALESCE(event_end_time, event_time, TIME '23:59:59') < :now
+    """), {"now": datetime.now()})
+    if result.rowcount:
+        db.commit()
+
+
+def _validate_event_times(event_date: str, event_time: str, event_end_time: Optional[str]):
+    """Check the date/start time, and that the end time (if given) is after the start."""
+    from datetime import datetime
+    try:
+        start = datetime.strptime(f"{event_date} {event_time[:5]}", "%Y-%m-%d %H:%M")
+        end = datetime.strptime(f"{event_date} {event_end_time[:5]}", "%Y-%m-%d %H:%M") if event_end_time else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date or time")
+    if end is not None and end <= start:
+        raise HTTPException(status_code=400, detail="End time must be after the start time")
+    return end or start
+
+
+def _validate_registration_period(registration_start: Optional[str], registration_end: Optional[str], event_date: str):
+    """
+    Registration start/end dates (YYYY-MM-DD, each optional): start <= end <= event date.
+    Returns (start, end) as dates or None.
+    """
+    def parse(value: Optional[str], label: str):
+        if not (value or "").strip():
+            return None
+        try:
+            return date.fromisoformat(value.strip())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid registration {label} date")
+
+    start, end = parse(registration_start, "start"), parse(registration_end, "end")
+    event_day = date.fromisoformat(event_date)
+    if start and start > event_day:
+        raise HTTPException(status_code=400, detail="Registration must start on or before the event date")
+    if end and end > event_day:
+        raise HTTPException(status_code=400, detail="Registration must end on or before the event date")
+    if start and end and end < start:
+        raise HTTPException(status_code=400, detail="Registration end can't be before the registration start")
+    return start, end
+
+
+def _time_str(value) -> Optional[str]:
+    return str(value) if value else None
+
+
 @router.post("/events")
 async def create_event(
     event_name: str = Form(...),
@@ -868,6 +947,9 @@ async def create_event(
     organizer_id: int = Form(...),
     department: str = Form(None),
     about_event: str = Form(None),
+    event_end_time: str = Form(None),
+    registration_start: str = Form(None),
+    registration_end: str = Form(None),
     cover_photo: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
@@ -894,11 +976,8 @@ async def create_event(
     if not organizer_role:
         raise HTTPException(status_code=400, detail="Organizer not found")
 
-    from datetime import datetime
-    try:
-        datetime.strptime(f"{event_date} {event_time[:5]}", "%Y-%m-%d %H:%M")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date or time")
+    _validate_event_times(event_date, event_time, event_end_time)
+    registration_start, registration_end = _validate_registration_period(registration_start, registration_end, event_date)
 
     # Insert into database (raw SQL for now since schema is complex)
     from sqlalchemy import text
@@ -906,12 +985,12 @@ async def create_event(
     query = text("""
         INSERT INTO events (
             user_role_id, event_name, event_description, 
-            event_date, event_time, venue, capacity, status,
-            cover_photo_data, cover_photo_type, department, about_event
+            event_date, event_time, event_end_time, venue, capacity, status,
+            cover_photo_data, cover_photo_type, department, about_event, registration_start, registration_end
         ) VALUES (
             :user_role_id, :event_name, :event_description,
-            :event_date, :event_time, :venue, :capacity, 'open',
-            :cover_photo_data, :cover_photo_type, :department, :about_event
+            :event_date, :event_time, :event_end_time, :venue, :capacity, 'open',
+            :cover_photo_data, :cover_photo_type, :department, :about_event, :registration_start, :registration_end
         ) RETURNING id
     """)
     
@@ -922,14 +1001,18 @@ async def create_event(
             "event_description": event_description,
             "event_date": event_date,
             "event_time": event_time,
+            "event_end_time": event_end_time or None,
             "venue": venue,
             "capacity": capacity,
             "cover_photo_data": cover_photo_data,
             "cover_photo_type": cover_photo_type,
             "department": department or None,
-            "about_event": about_event or None
+            "about_event": about_event or None,
+            "registration_start": registration_start,
+            "registration_end": registration_end
         })
         event_id = result.scalar()
+        _close_finished_events(db)  # an event created for a time that already ended starts closed
 
         # cover_photo keeps holding the URL the frontend loads
         cover_photo_url = None
@@ -952,6 +1035,9 @@ async def create_event(
                     "event_description": event_description,
                     "event_date": event_date,
                     "event_time": event_time,
+                    "event_end_time": event_end_time or None,
+                    "registration_start": registration_start.isoformat() if registration_start else None,
+                    "registration_end": registration_end.isoformat() if registration_end else None,
                     "venue": venue,
                     "capacity": capacity,
                     "status": "open",
@@ -972,6 +1058,7 @@ def get_events(db: Session = Depends(get_db)):
     Get all events
     """
     from sqlalchemy import text
+    _close_finished_events(db)
     
     query = text("""
         SELECT 
@@ -979,7 +1066,7 @@ def get_events(db: Session = Depends(get_db)):
             e.event_date, e.event_time, e.venue, e.capacity,
             e.status, e.cover_photo,
             COALESCE(COUNT(r.id), 0) as enrolled_count,
-            e.department, e.about_event
+            e.department, e.about_event, e.event_end_time, e.registration_start, e.registration_end
         FROM events e
         LEFT JOIN registrations r ON e.id = r.event_id
         GROUP BY e.id
@@ -1003,7 +1090,10 @@ def get_events(db: Session = Depends(get_db)):
                 "cover_photo": row[8],
                 "enrolled_count": row[9],
                 "department": row[10],
-                "about_event": row[11]
+                "about_event": row[11],
+                "event_end_time": _time_str(row[12]),
+                "registration_start": str(row[13]) if row[13] else None,
+                "registration_end": str(row[14]) if row[14] else None
             })
         
         return {
@@ -1044,6 +1134,7 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
     Get a specific event by ID
     """
     from sqlalchemy import text
+    _close_finished_events(db)
     
     query = text("""
         SELECT 
@@ -1051,7 +1142,7 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
             e.event_date, e.event_time, e.venue, e.capacity,
             e.status, e.cover_photo,
             COALESCE(COUNT(r.id), 0) as enrolled_count,
-            e.department, e.about_event
+            e.department, e.about_event, e.event_end_time, e.registration_start, e.registration_end
         FROM events e
         LEFT JOIN registrations r ON e.id = r.event_id
         WHERE e.id = :event_id
@@ -1079,7 +1170,10 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
                 "cover_photo": row[8],
                 "enrolled_count": row[9],
                 "department": row[10],
-                "about_event": row[11]
+                "about_event": row[11],
+                "event_end_time": _time_str(row[12]),
+                "registration_start": str(row[13]) if row[13] else None,
+                "registration_end": str(row[14]) if row[14] else None
             }
         }
     except HTTPException:
@@ -1095,6 +1189,7 @@ def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
     Dashboard stats for one organizer (organizer_id is the organizer's users.id)
     """
     from sqlalchemy import text
+    _close_finished_events(db)
 
     # events.user_role_id references the organizer's user_roles row
     events_query = text("""
@@ -1158,7 +1253,7 @@ def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
                d.department_name, ur.contact_number,
                COALESCE(a.gender, ur.gender), COALESCE(a.year_level::text, ur.year_level),
                COALESCE(a.attendance_status, 'not_recorded') AS status,
-               a.address
+               COALESCE(a.address, ur.address) AS address
         FROM registrations r
         JOIN users u ON u.id = r.user_id
         JOIN events e ON e.id = r.event_id
@@ -1199,12 +1294,12 @@ class AttendanceUpdate(BaseModel):
 @router.put("/organizer/attendees/{registration_id}/attendance")
 def update_attendance(registration_id: int, body: AttendanceUpdate, db: Session = Depends(get_db)):
     """
-    Mark a registration as present or not recorded
+    Mark a registration as present, absent or not recorded (the student sees it on My Events)
     """
     from sqlalchemy import text
 
-    if body.status not in ("present", "not_recorded"):
-        raise HTTPException(status_code=400, detail="Status must be 'present' or 'not_recorded'")
+    if body.status not in ("present", "absent", "not_recorded"):
+        raise HTTPException(status_code=400, detail="Status must be 'present', 'absent' or 'not_recorded'")
 
     registration = db.execute(text("""
         SELECT r.id, u.full_name, u.email, ur.contact_number, ur.department_id
@@ -1280,20 +1375,78 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/events/{event_id}/enrollment")
+def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Whether the logged-in student/participant is enrolled in this event
+    """
+    from sqlalchemy import text
+
+    row = db.execute(text("""
+        SELECT COALESCE(a.attendance_status, 'not_recorded') AS attendance
+        FROM registrations r
+        LEFT JOIN attendees a ON a.registration_id = r.id
+        WHERE r.event_id = :event_id AND r.user_id = :user_id
+    """), {"event_id": event_id, "user_id": current_user_id(request)}).first()
+    return {
+        "success": True,
+        "enrolled": row is not None,
+        "attendance": row.attendance if row else None,  # 'present', 'absent' or 'not_recorded'
+    }
+
+
+@router.delete("/events/{event_id}/enroll")
+def cancel_enrollment(event_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Cancel the logged-in user's enrollment. Only allowed during the registration period
+    (registration start, or the event date, through registration end). The registration row
+    is deleted (its attendees row cascades), so the slot frees up and they can enroll again.
+    """
+    from sqlalchemy import text
+    _close_finished_events(db)
+
+    row = db.execute(text("""
+        SELECT r.id, e.status, a.attendance_status,
+               COALESCE(e.registration_start, e.event_date) AS opens_on, e.registration_end
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        LEFT JOIN attendees a ON a.registration_id = r.id
+        WHERE r.event_id = :event_id AND r.user_id = :user_id
+    """), {"event_id": event_id, "user_id": current_user_id(request)}).first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="You are not enrolled in this event")
+    if row.status != 'open':
+        raise HTTPException(status_code=400, detail="This event is already closed, so the enrollment can't be cancelled")
+    if row.attendance_status in ('present', 'absent'):
+        raise HTTPException(status_code=400, detail="Your attendance was already recorded for this event")
+    today = date.today()
+    if (row.opens_on and today < row.opens_on) or (row.registration_end and today > row.registration_end):
+        raise HTTPException(status_code=400, detail="Enrollment can only be cancelled during the registration period")
+
+    db.execute(text("DELETE FROM registrations WHERE id = :id"), {"id": row.id})
+    db.commit()
+    return {"success": True, "message": "Enrollment cancelled"}
+
+
 @router.post("/events/{event_id}/enroll")
 async def enroll_event(
     event_id: int,
-    student_email: str = Form(...),
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Enroll a student in an event
+    Enroll the logged-in student/participant (identified by the login cookie) in an event
     """
     from sqlalchemy import text
+    user_id = current_user_id(request)
+    _close_finished_events(db)
     
     # Check if event exists
     event_query = text("""
-        SELECT e.id, e.capacity, e.status, COUNT(r.id) AS enrolled
+        SELECT e.id, e.capacity, e.status, COUNT(r.id) AS enrolled,
+               COALESCE(e.registration_start, e.event_date) AS opens_on,
+               e.registration_end
         FROM events e
         LEFT JOIN registrations r ON r.event_id = e.id
         WHERE e.id = :event_id
@@ -1304,13 +1457,26 @@ async def enroll_event(
     if not event_result:
         raise HTTPException(status_code=404, detail="Event not found")
     if event_result[2] != 'open':
-        raise HTTPException(status_code=400, detail="This event is not open for enrollment")
+        raise HTTPException(status_code=400, detail="This event is closed for enrollment")
+    # Upcoming: registration hasn't started yet (no registration start set -> opens on the event date)
+    if event_result[4] and date.today() < event_result[4]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Registration for this event opens on {event_result[4].strftime('%B')} {event_result[4].day}, {event_result[4].year}"
+        )
+    if event_result[5] and date.today() > event_result[5]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Registration for this event ended on {event_result[5].strftime('%B')} {event_result[5].day}, {event_result[5].year}"
+        )
     if event_result[1] is not None and event_result[3] >= event_result[1]:
         raise HTTPException(status_code=400, detail="This event is already full")
 
-    user = db.query(User).filter(User.email == student_email.strip().lower()).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Account not found. Please log in again.")
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    if user.role not in ('student', 'participant'):
+        raise HTTPException(status_code=403, detail="Only students and participants can enroll in events")
 
     # Check if already enrolled
     existing = db.query(Registration).filter(
@@ -1335,6 +1501,10 @@ async def enroll_event(
             "success": True,
             "message": "Successfully enrolled in event"
         }
+    except IntegrityError:
+        # UNIQUE(event_id, user_id): a second click got here at the same time
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Already enrolled in this event")
     except Exception as e:
         db.rollback()
         print(f"Error enrolling: {e}")
@@ -1424,6 +1594,19 @@ def change_password(body: ChangePasswordRequest, request: Request, db: Session =
     return {"success": True, "message": "Password changed successfully"}
 
 
+def _avatar_url(user_id: int, user_role) -> str:
+    """URL of the user's profile picture ('' when they haven't uploaded one)."""
+    return f"/api/users/{user_id}/avatar" if user_role and user_role.avatar_type else ""
+
+
+def _age(birthday) -> str:
+    """Whole years since the birthday ('' when there's no birthday). Not stored: it changes every year."""
+    if not birthday:
+        return ""
+    today = date.today()
+    return str(today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day)))
+
+
 def _profile_response(user: User, user_role, dept) -> dict:
     return {
         "fullName": user.full_name,
@@ -1433,8 +1616,12 @@ def _profile_response(user: User, user_role, dept) -> dict:
         "yearLevel": (user_role.year_level if user_role else None) or "",
         "gender": (user_role.gender if user_role else None) or "",
         "contactNumber": (user_role.contact_number if user_role else None) or "",
+        "address": (user_role.address if user_role else None) or "",
+        "birthday": user_role.birthday.isoformat() if user_role and user_role.birthday else "",
+        "age": _age(user_role.birthday) if user_role else "",
         "email": user.email,
         "role": user.role.capitalize(),
+        "avatarUrl": _avatar_url(user.id, user_role),
     }
 
 
@@ -1468,6 +1655,8 @@ class ProfileUpdate(BaseModel):
     yearLevel: Optional[str] = None
     gender: Optional[str] = None
     contactNumber: Optional[str] = None
+    address: Optional[str] = None
+    birthday: Optional[str] = None  # YYYY-MM-DD
 
 
 @router.put("/student/profile")
@@ -1503,13 +1692,37 @@ def update_student_profile(body: ProfileUpdate, request: Request, db: Session = 
             return f"{digits[:4]}-{digits[4:7]}-{digits[7:]}"
         return digits or None
 
-    user.full_name = clean(body.fullName)
+    def birthday(value: Optional[str]):
+        if not (value or "").strip():
+            return None
+        try:
+            parsed = date.fromisoformat(value.strip())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Please enter a valid birthday")
+        if parsed > date.today():
+            raise HTTPException(status_code=400, detail="Birthday can't be in the future")
+        return parsed
+
+    def letters(value: Optional[str], label: str) -> Optional[str]:
+        """Names, department and program: letters, spaces and . - ' only."""
+        if not re.fullmatch(r"[A-Za-zÑñ .'-]*", value or ""):
+            raise HTTPException(status_code=400, detail=f"{label} can only contain letters")
+        return clean(value)
+
+    if (body.srCode or "").strip() and not re.fullmatch(r"\d{2}-\d{5}", body.srCode.strip()):
+        raise HTTPException(status_code=400, detail="SR-Code must look like 23-30046")
+    if (body.contactNumber or "").strip() and len(re.sub(r"\D", "", body.contactNumber)) != 11:
+        raise HTTPException(status_code=400, detail="Contact number must have 11 digits (0912-345-6789)")
+
+    user.full_name = letters(body.fullName, "Full name")
     user_role.student_number = clean(body.srCode)
-    user_role.program = clean(body.program)
+    user_role.program = letters(body.program, "Program")
     user_role.year_level = year_level(body.yearLevel)
     user_role.gender = clean(body.gender)
     user_role.contact_number = phone(body.contactNumber)
-    if clean(body.collegeDepartment):
+    user_role.address = clean(body.address)
+    user_role.birthday = birthday(body.birthday)
+    if letters(body.collegeDepartment, "College / Department"):
         user_role.department_id = get_or_create_department(db, clean(body.collegeDepartment)).id
     db.commit()
 
@@ -1519,6 +1732,47 @@ def update_student_profile(body: ProfileUpdate, request: Request, db: Session = 
         "message": "Profile updated successfully",
         "profile": _profile_response(user, user_role, dept)
     }
+
+
+@router.post("/student/profile/avatar")
+async def upload_profile_avatar(request: Request, avatar: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Save the logged-in user's profile picture (bytes stored in user_roles.avatar_data)
+    """
+    user = db.query(User).filter(User.id == current_user_id(request)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
+    if not (avatar.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="Please select an image file")
+    data = await avatar.read()
+    if len(data) > MAX_COVER_PHOTO_BYTES:
+        raise HTTPException(status_code=400, detail="Image size must be less than 5MB")
+
+    user_role, _ = _role_row(db, user)
+    if not user_role:
+        user_role = UserRole(user_id=user.id, role_type=user.role)
+        db.add(user_role)
+    user_role.avatar_data = data
+    user_role.avatar_type = avatar.content_type
+    db.commit()
+
+    return {"success": True, "message": "Profile picture updated", "avatarUrl": f"/api/users/{user.id}/avatar"}
+
+
+@router.get("/users/{user_id}/avatar")
+def get_user_avatar(user_id: int, db: Session = Depends(get_db)):
+    """
+    Serve a user's profile picture from the database
+    """
+    row = db.query(UserRole.avatar_data, UserRole.avatar_type).filter(
+        UserRole.user_id == user_id, UserRole.avatar_data.isnot(None)
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Profile picture not found")
+
+    # no-cache: the URL stays the same when the picture is replaced
+    return Response(content=bytes(row[0]), media_type=row[1] or "application/octet-stream",
+                    headers={"Cache-Control": "no-cache"})
 
 
 @router.put("/events/{event_id}")
@@ -1533,6 +1787,9 @@ async def update_event(
     organizer_id: int = Form(...),
     department: str = Form(None),
     about_event: str = Form(None),
+    event_end_time: str = Form(None),
+    registration_start: str = Form(None),
+    registration_end: str = Form(None),
     cover_photo: UploadFile = File(None),
     db: Session = Depends(get_db)
 ):
@@ -1551,10 +1808,8 @@ async def update_event(
     if not owner:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    try:
-        datetime.strptime(f"{event_date} {event_time[:5]}", "%Y-%m-%d %H:%M")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date or time")
+    ends_at = _validate_event_times(event_date, event_time, event_end_time)
+    registration_start, registration_end = _validate_registration_period(registration_start, registration_end, event_date)
     if capacity < 1:
         raise HTTPException(status_code=400, detail="Capacity must be at least 1")
 
@@ -1573,10 +1828,15 @@ async def update_event(
         "event_description": event_description,
         "event_date": event_date,
         "event_time": event_time,
+        "event_end_time": event_end_time or None,
+        # Moving the end time later reopens an auto-closed event; an earlier one closes it
+        "status_open": ends_at > datetime.now(),
         "venue": venue,
         "capacity": capacity,
         "department": department or None,
         "about_event": about_event or None,
+        "registration_start": registration_start,
+        "registration_end": registration_end,
     }
     cover_sql = ""
     if cover_photo and cover_photo.filename:
@@ -1596,8 +1856,12 @@ async def update_event(
     db.execute(text(f"""
         UPDATE events SET
             event_name = :event_name, event_description = :event_description,
-            event_date = :event_date, event_time = :event_time, venue = :venue,
-            capacity = :capacity, department = :department, about_event = :about_event,
+            event_date = :event_date, event_time = :event_time, event_end_time = :event_end_time,
+            venue = :venue, capacity = :capacity, department = :department, about_event = :about_event,
+            registration_start = :registration_start, registration_end = :registration_end,
+            status = CASE WHEN status IN ('open', 'closed')
+                          THEN CASE WHEN :status_open THEN 'open' ELSE 'closed' END
+                          ELSE status END,
             updated_at = NOW(){cover_sql}
         WHERE id = :id
     """), params)
@@ -1608,49 +1872,38 @@ async def update_event(
 
 
 @router.post("/verify-email")
-def verify_email(email: str = Form(...), code: str = Form(...), db: Session = Depends(get_db)):
+def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     """
-    Check the 6-digit code; if correct, create the student/participant account
-    from the pending registration.
+    Opened from the emailed "Verify Account" link; creates the student/participant
+    account from the pending registration.
     """
-    import hmac
     from sqlalchemy import text
 
-    email = email.strip().lower()
-    code = code.strip()
-
     pending = db.execute(text("""
-        SELECT id, full_name, role, password_hash, department, contact_number,
-               code_hash, attempts, expires_at > NOW() AS still_valid
-        FROM pending_registrations WHERE email = :e
-    """), {"e": email}).first()
+        SELECT id, email, full_name, role, password_hash, department, contact_number,
+               expires_at > NOW() AS still_valid
+        FROM pending_registrations WHERE code_hash = :h
+    """), {"h": _hash_code(token.strip())}).first()
 
     if not pending:
-        if db.query(User).filter(User.email == email).first():
-            return {"success": True, "message": "Your email is already verified. You can log in."}
-        raise HTTPException(status_code=404, detail="No pending registration for this email. Please register again.")
+        raise HTTPException(
+            status_code=400,
+            detail="This verification link is invalid or has already been used. Try logging in, or register again."
+        )
     if not pending.still_valid:
-        raise HTTPException(status_code=400, detail="This code has expired. Please request a new one.")
-    if pending.attempts >= VERIFICATION_MAX_ATTEMPTS:
-        raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please request a new code.")
+        return _unverified_response(
+            pending.email, "This verification link has expired. Please request a new one.", status_code=400
+        )
 
-    if not (code.isdigit() and len(code) == 6 and hmac.compare_digest(_hash_code(code), pending.code_hash)):
-        db.execute(text("UPDATE pending_registrations SET attempts = attempts + 1 WHERE id = :id"), {"id": pending.id})
-        db.commit()
-        left = VERIFICATION_MAX_ATTEMPTS - pending.attempts - 1
-        if left <= 0:
-            raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please request a new code.")
-        raise HTTPException(status_code=400, detail=f"Incorrect code. {left} attempt{'s' if left != 1 else ''} left.")
-
-    if db.query(User).filter(User.email == email).first():
+    if db.query(User).filter(User.email == pending.email).first():
         db.execute(text("DELETE FROM pending_registrations WHERE id = :id"), {"id": pending.id})
         db.commit()
-        raise HTTPException(status_code=400, detail="Email already registered")
+        return {"success": True, "message": "Your account is already verified. You can log in."}
 
-    # Code is correct: create the real account now
+    # Link is valid: create the real account now
     new_user = User(
         full_name=pending.full_name,
-        email=email,
+        email=pending.email,
         password=pending.password_hash,
         role=pending.role,
         is_active=True
@@ -1665,16 +1918,16 @@ def verify_email(email: str = Form(...), code: str = Form(...), db: Session = De
     db.execute(text("DELETE FROM pending_registrations WHERE id = :id"), {"id": pending.id})
     db.commit()
 
-    return {"success": True, "message": "Your email has been verified and your account is created. You can now log in."}
+    return {"success": True, "message": "Your account has been verified. You can now log in."}
 
 
 @router.post("/resend-verification")
 async def resend_verification(email: str = Form(...), db: Session = Depends(get_db)):
     """
-    Send a new 6-digit code for a pending registration (at most once every VERIFICATION_RESEND_SECONDS)
+    Send a new verification link for a pending registration (at most once every VERIFICATION_RESEND_SECONDS)
     """
     from sqlalchemy import text
-    from services.email_service import send_verification_code_email
+    from services.email_service import send_verification_link_email
 
     email = email.strip().lower()
     pending = db.execute(text("""
@@ -1691,34 +1944,36 @@ async def resend_verification(email: str = Form(...), db: Session = Depends(get_
         wait = int(VERIFICATION_RESEND_SECONDS - pending.seconds_since) + 1
         return JSONResponse(
             status_code=429,
-            content={"detail": f"Please wait {wait} seconds before requesting a new code.", "retry_after": wait}
+            content={"detail": f"Please wait {wait} seconds before requesting a new link.", "retry_after": wait}
         )
 
-    code = _new_code()
+    # A new link replaces the old one; created_at restarts so the 24-hour purge doesn't drop it early
+    token = _new_token()
     db.execute(text(f"""
         UPDATE pending_registrations
-        SET code_hash = :h, attempts = 0, last_sent_at = NOW(),
-            expires_at = NOW() + INTERVAL '{VERIFICATION_CODE_TTL_MINUTES} minutes'
+        SET code_hash = :h, last_sent_at = NOW(), created_at = NOW(),
+            expires_at = NOW() + INTERVAL '{VERIFICATION_LINK_TTL_HOURS} hours'
         WHERE id = :id
-    """), {"h": _hash_code(code), "id": pending.id})
+    """), {"h": _hash_code(token), "id": pending.id})
     db.commit()
 
-    if not await send_verification_code_email(email, pending.full_name, code):
-        raise HTTPException(status_code=503, detail="We couldn't send the code right now. Please try again later.")
-    return {"success": True, "message": f"A new code was sent to {email}.", "retry_after": VERIFICATION_RESEND_SECONDS}
+    if not await send_verification_link_email(email, pending.full_name, _verification_link(token)):
+        raise HTTPException(status_code=503, detail="We couldn't send the link right now. Please try again later.")
+    return {"success": True, "message": f"A new link was sent to {email}.", "retry_after": VERIFICATION_RESEND_SECONDS}
 
 
 @router.get("/student/my-events")
 def get_my_events(request: Request, db: Session = Depends(get_db)):
     """
     Events the logged-in student/participant enrolled in, with their attendance
-    ('present' or 'not_recorded'). Identified by the login cookie.
+    ('present', 'absent' or 'not_recorded'). Identified by the login cookie.
     """
     from sqlalchemy import text
 
     user_id = current_user_id(request)
+    _close_finished_events(db)
     rows = db.execute(text("""
-        SELECT e.id, e.event_name, e.event_date, e.event_time, e.venue, e.status,
+        SELECT e.id, e.event_name, e.event_date, e.event_time, e.event_end_time, e.venue, e.status,
                COALESCE(a.attendance_status, 'not_recorded') AS attendance,
                r.registration_date
         FROM registrations r
@@ -1736,6 +1991,7 @@ def get_my_events(request: Request, db: Session = Depends(get_db)):
                 "event_name": row.event_name,
                 "event_date": str(row.event_date) if row.event_date else None,
                 "event_time": str(row.event_time) if row.event_time else None,
+                "event_end_time": _time_str(row.event_end_time),
                 "venue": row.venue,
                 "status": row.status,
                 "attendance": row.attendance,

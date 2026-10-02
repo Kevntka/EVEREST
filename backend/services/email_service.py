@@ -263,12 +263,12 @@ EVEREST Admin Team
     return await _send(to_email, "EVEREST - Password Reset Request", text_content, html_content)
 
 
-async def send_verification_code_email(to_email: str, user_name: str, code: str):
+async def send_verification_link_email(to_email: str, user_name: str, verify_link: str):
     """
-    Send the 6-digit email verification code (same design as the organizer welcome email)
+    Send the "Verify Account" link (same design as the password reset email)
     """
     if not EMAIL_ENABLED:
-        print(f"⚠️  EMAIL DISABLED (EMAIL_ENABLED=false) - skipping verification code to {to_email}")
+        print(f"⚠️  EMAIL DISABLED (EMAIL_ENABLED=false) - skipping verification link to {to_email}")
         return False
 
     text_content = f"""
@@ -276,10 +276,10 @@ Verify your EVEREST account
 
 Hello {user_name},
 
-Your verification code is: {code}
+Thanks for registering. Open the link below to verify your account:
+{verify_link}
 
-Enter this code on the Verify Email page to activate your account.
-The code expires in 15 minutes.
+This link expires in 24 hours.
 
 If you did not create an EVEREST account, you can ignore this email.
 
@@ -296,27 +296,27 @@ EVEREST Admin Team
           .header {{ background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
                      color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
           .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-          .code-box {{ background: white; padding: 20px; border-left: 4px solid #ff6b6b; margin: 20px 0; text-align: center; }}
-          .code {{ font-size: 36px; font-weight: bold; letter-spacing: 10px; color: #dc3545; margin: 10px 0; }}
+          .button {{ display: inline-block; padding: 12px 30px; background: #dc3545;
+                    color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
           .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Verify Your Email</h1>
+            <h1>Verify Your Account</h1>
             <p>Event Registration System</p>
           </div>
           <div class="content">
             <p>Hello <strong>{user_name}</strong>,</p>
-            <p>Thanks for registering. Enter this code on the Verify Email page to activate your account:</p>
+            <p>Thanks for registering. Click the button below to verify your account:</p>
+            <a href="{verify_link}" class="button" style="color: white;">Verify Account</a>
 
-            <div class="code-box">
-              <h3>Your Verification Code:</h3>
-              <p class="code">{code}</p>
-            </div>
-
-            <p><strong>Important:</strong> This code expires in 15 minutes. Never share it with anyone.</p>
+            <p><strong>Important:</strong> This link expires in 24 hours.</p>
+            <p style="font-size: 12px; color: #666;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="{verify_link}">{verify_link}</a>
+            </p>
             <p style="font-size: 12px; color: #666;">If you did not create an EVEREST account, you can ignore this email.</p>
           </div>
           <div class="footer">
@@ -328,4 +328,4 @@ EVEREST Admin Team
     </html>
     """
 
-    return await _send(to_email, f"EVEREST - Your verification code is {code}", text_content, html_content)
+    return await _send(to_email, "EVEREST - Verify your account", text_content, html_content)

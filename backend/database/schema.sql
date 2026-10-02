@@ -39,6 +39,10 @@ CREATE TABLE user_roles (
     gender VARCHAR(30),
     year_level VARCHAR(20),
     program VARCHAR(150),
+    address VARCHAR(255),
+    birthday DATE,
+    avatar_data BYTEA,
+    avatar_type VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -50,6 +54,9 @@ CREATE TABLE events (
     event_description TEXT,
     event_date DATE,
     event_time TIME,
+    event_end_time TIME,
+    registration_start DATE,  -- enrolling opens on this date (NULL: on the event date)
+    registration_end DATE,    -- last day to enroll (NULL: until the event ends)
     venue VARCHAR(200),
     capacity INTEGER,
     status VARCHAR(50) DEFAULT 'open' CHECK (status IN ('open', 'closed', 'cancelled')),

@@ -4,6 +4,7 @@ Matching the actual PostgreSQL schema
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, SmallInteger, ForeignKey, BigInteger, CheckConstraint, Boolean, Date, Time, LargeBinary
+from sqlalchemy.orm import deferred
 from sqlalchemy.sql import func
 from database.config import Base
 
@@ -39,6 +40,12 @@ class UserRole(Base):
     gender = Column(String(30))
     year_level = Column(String(20))
     program = Column(String(150))
+    address = Column(String(255))  # participants
+    birthday = Column(Date)  # participants
+    # Profile picture, served by GET /api/users/{id}/avatar. Deferred so user lists don't load
+    # every image; avatar_type is set whenever there's a picture, so check that instead.
+    avatar_data = deferred(Column(LargeBinary))
+    avatar_type = Column(String(100))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     def __repr__(self):
