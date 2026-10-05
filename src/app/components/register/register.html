@@ -37,17 +37,14 @@
     </div>
 
     <div class="form-group">
-      <select 
-        id="role" 
-        name="role" 
+      <app-select
+        id="role"
+        name="role"
+        placeholder="Role"
+        [options]="roleOptions"
         [(ngModel)]="role"
         required
-      >
-        <option value="" disabled selected>Role</option>
-        <option *ngFor="let roleOption of roles" [value]="roleOption">
-          {{ roleOption }}
-        </option>
-      </select>
+      ></app-select>
     </div>
 
     <div class="error-message" *ngIf="errorMessage">

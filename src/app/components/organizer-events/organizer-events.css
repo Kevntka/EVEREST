@@ -25,20 +25,6 @@
   margin-left: -220px;
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 1000;
-    margin-left: 0;
-  }
-  
-  .sidebar.closed {
-    margin-left: -220px;
-  }
-}
 
 .logo-section {
   display: flex;
@@ -572,39 +558,6 @@
   border-top: 1px solid #e9ecef;
 }
 
-.pagination-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
-  background-color: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: #495057;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:not(:disabled):hover {
-  background-color: #dc3545;
-  border-color: #dc3545;
-  color: #ffffff;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background-color: #f8f9fa;
-}
-
-.pagination-info {
-  font-size: 13px;
-  color: #6c757d;
-  font-weight: 500;
-}
-
 /* Create Event Modal */
 .modal-overlay {
   position: fixed;
@@ -712,10 +665,26 @@
   
   .filter-left {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Stacked: search and dropdowns are as wide as the button */
+  .filter-left > * {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .search-box {
     max-width: 100%;
+  }
+
+  .create-btn {
+    width: 100%;
+    justify-content: center;
+    padding-left: 12px;
+    padding-right: 12px;
+    white-space: nowrap;
   }
 }
 
@@ -768,28 +737,12 @@
 
 :host-context(body.dark-mode) .events-table th,
 :host-context(body.dark-mode) .events-table td,
-:host-context(body.dark-mode) .empty-state,
-:host-context(body.dark-mode) .pagination-info {
+:host-context(body.dark-mode) .empty-state {
   color: #ffffff;
 }
 
 :host-context(body.dark-mode) .events-table tbody tr:hover {
   background-color: #3a3a3a;
-}
-
-:host-context(body.dark-mode) .pagination-btn {
-  background-color: #2d2d2d;
-  border-color: #404040;
-  color: #ffffff;
-}
-
-:host-context(body.dark-mode) .pagination-btn:disabled {
-  background-color: #3a3a3a;
-}
-
-:host-context(body.dark-mode) .pagination-btn:not(:disabled):hover {
-  background-color: #dc3545;
-  border-color: #dc3545;
 }
 
 :host-context(body.dark-mode) .edit-btn {

@@ -22,8 +22,10 @@ import {
 import { ThemeService } from '../../services/theme.service';
 
 import { DialogService } from '../../services/dialog.service';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
+import { autoRefresh } from '../../utils/auto-refresh';
+import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
-import { PasswordChecklist } from '../password-checklist/password-checklist';
 interface OrganizerStats {
   students: number;
   participants: number;
@@ -49,14 +51,16 @@ interface AttendanceData {
 @Component({
   selector: 'app-organizer-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, PasswordChecklist],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe],
   templateUrl: './organizer-dashboard.html',
   styleUrl: './organizer-dashboard.css'
 })
 export class OrganizerDashboard implements OnInit {
   private dialog = inject(DialogService);
+  /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
+  private autoRefresh = autoRefresh(() => this.loadDashboardStats());
+  private changePasswordService = inject(ChangePasswordService);
   showDropdown = false;
-  showChangePasswordModal = false;
   sidebarOpen = true;
   organizerName = 'Juan De la Cruz';
   
@@ -74,11 +78,6 @@ export class OrganizerDashboard implements OnInit {
     notRecorded: 0
   };
 
-  passwordForm = {
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  };
   
   // Lucide icons
   readonly LayoutDashboard = LayoutDashboard;
@@ -197,47 +196,12 @@ export class OrganizerDashboard implements OnInit {
     this.router.navigate(['/organizer-attendance']);
   }
 
-  /**
-   * Open change password modal
-   */
+
+  /** Change Password: email a Set New Password link to the logged-in user's email. */
   openChangePassword(): void {
-    this.showChangePasswordModal = true;
     this.showDropdown = false;
+    this.changePasswordService.sendLink();
   }
 
-  /**
-   * Close change password modal
-   */
-  closeChangePassword(): void {
-    this.showChangePasswordModal = false;
-    this.passwordForm = {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    };
-  }
 
-  /**
-   * Change password
-   */
-  changePassword(): void {
-    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-      this.dialog.error('Check your input', 'New passwords do not match!');
-      return;
-    }
-
-    this.http.post<any>('http://localhost:8000/api/organizer/change-password', {
-      current_password: this.passwordForm.currentPassword,
-      new_password: this.passwordForm.newPassword
-    }, { withCredentials: true }).subscribe({
-      next: (response) => {
-        this.dialog.success('Success!', 'Password changed successfully!');
-        this.closeChangePassword();
-      },
-      error: (error) => {
-        console.error('Error changing password:', error);
-        this.dialog.error('Something went wrong', error.error?.detail || 'Failed to change password. Please check your current password.');
-      }
-    });
-  }
 }

@@ -1,8 +1,66 @@
 <div class="event-details-container">
+  <!-- Sidebar: the logged-in role's menu (admins and students both open this page) -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">{{ roleLabel }}</h3>
+    </div>
+
+    <nav class="nav-menu">
+      @if (role === 'admin') {
+        <button class="nav-item active" (click)="goTo('/dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/organizer')">
+          <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Organizer</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/students')">
+          <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Students</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/participants')">
+          <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Participants</span>
+        </button>
+      } @else if (role === 'organizer') {
+        <button class="nav-item active" (click)="goTo('/organizer-dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/organizer-events')">
+          <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Events</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/organizer-attendance')">
+          <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Attendance</span>
+        </button>
+      } @else {
+        <button class="nav-item active" (click)="goTo('/student-dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/student-profile')">
+          <lucide-icon [img]="UserCircle" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Profile</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/my-events')">
+          <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+          <span class="nav-text">My Events</span>
+        </button>
+      }
+    </nav>
+  </aside>
+
+  <div class="page-area">
   <!-- Top Bar -->
   <header class="top-bar">
     <div class="top-bar-left">
-      <button class="menu-toggle" (click)="backToDashboard()">
+      <button class="menu-toggle" (click)="toggleSidebar()">
         <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
       </button>
       <h2 class="page-title">Dashboard</h2>
@@ -11,7 +69,7 @@
     <div class="user-menu" (clickOutside)="showDropdown = false">
       <button class="user-dropdown" (click)="toggleDropdown()">
         <lucide-icon [img]="User" [size]="20"></lucide-icon>
-        <span class="user-name">{{ studentName }}</span>
+        <span class="user-name">{{ studentName | displayCase }}</span>
         <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
       </button>
 
@@ -94,9 +152,9 @@
           @if (canEnroll) {
             @if (isEnrolled) {
               <p class="enrolled-note">You're enrolled in this event.</p>
-              @if (attendance === 'present' || attendance === 'absent') {
-                <p class="attendance-note" [class.absent]="attendance === 'absent'">
-                  Attendance: {{ attendance === 'present' ? 'Present' : 'Absent' }}
+              @if (attendance === 'present') {
+                <p class="attendance-note">
+                  Attendance: Present
                 </p>
               }
               <!-- Cancelling is only possible during the registration period -->
@@ -131,5 +189,6 @@
   <div class="loading-state" *ngIf="loading">
     <lucide-icon [img]="Loader2" [size]="48" class="spinner"></lucide-icon>
     <p>Loading event details...</p>
+  </div>
   </div>
 </div>

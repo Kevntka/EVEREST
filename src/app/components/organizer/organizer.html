@@ -74,10 +74,7 @@
             />
           </div>
 
-          <select class="department-select" [(ngModel)]="selectedDepartment">
-            <option value="">Department</option>
-           
-          </select>
+          <app-select class="department-select" [options]="departmentOptions" [(ngModel)]="selectedDepartment"></app-select>
         </div>
 
         <button class="add-btn" (click)="openAddModal()">
@@ -106,10 +103,10 @@
             <!-- Empty State -->
             
             <!-- Organizers List -->
-            <tr *ngFor="let organizer of pager.slice(organizers); let i = index">
-              <td>{{ organizer.full_name }}</td>
+            <tr *ngFor="let organizer of pager.slice(filteredOrganizers); let i = index">
+              <td>{{ organizer.full_name | displayCase }}</td>
               <td>{{ organizer.employment_id }}</td>
-              <td>{{ organizer.department }}</td>
+              <td>{{ organizer.department | displayCase }}</td>
               <td>{{ organizer.email }}</td>
               <td>{{ organizer.contact_number }}</td>
               <td>
@@ -130,17 +127,17 @@
           <div class="table-empty" *ngIf="isLoading">
             Loading organizers...
           </div>
-          <div class="table-empty" *ngIf="!isLoading && organizers.length === 0">
+          <div class="table-empty" *ngIf="!isLoading && filteredOrganizers.length === 0">
             No organizers to display
           </div>
         </div>
 
         <div class="table-pagination">
-          <button class="pagination-btn" [disabled]="pager.isFirst(organizers)" (click)="pager.prev(organizers)" aria-label="Previous page">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredOrganizers)" (click)="pager.prev(filteredOrganizers)" aria-label="Previous page">
             <span>&lt;</span>
           </button>
-          <span class="pagination-info">{{ pager.current(organizers) }} of {{ pager.totalPages(organizers) }}</span>
-          <button class="pagination-btn" [disabled]="pager.isLast(organizers)" (click)="pager.next(organizers)" aria-label="Next page">
+          <span class="pagination-info">{{ pager.current(filteredOrganizers) }} of {{ pager.totalPages(filteredOrganizers) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredOrganizers)" (click)="pager.next(filteredOrganizers)" aria-label="Next page">
             <span>&gt;</span>
           </button>
         </div>

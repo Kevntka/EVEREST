@@ -5,6 +5,10 @@ import { HttpClient } from '@angular/common/http';
 import { 
   LucideAngularModule, 
   Menu,
+  LayoutDashboard,
+  GraduationCap,
+  Users,
+  UserCircle,
   User,
   ChevronDown,
   ArrowLeft,
@@ -19,6 +23,8 @@ import { formatTimeRange } from '../../utils/event-time';
 import { registrationOpensOn, isRegistrationOpen, isRegistrationOver, formatShortDate } from '../../utils/registration';
 
 import { DialogService } from '../../services/dialog.service';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
+import { autoRefresh } from '../../utils/auto-refresh';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 export interface EventDetail {
   id: number;
@@ -41,7 +47,7 @@ export interface EventDetail {
 @Component({
   selector: 'app-event-details',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe],
   templateUrl: './event-details.html',
   styleUrl: './event-details.css'
 })
@@ -49,20 +55,30 @@ export class EventDetails implements OnInit {
   /** Only students and participants can enroll; admins open this page from their Dashboard just to view. */
   readonly canEnroll = ['student', 'participant'].includes(localStorage.getItem('userRole') || '');
   private dialog = inject(DialogService);
+  /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
+  private autoRefresh = autoRefresh(() => this.eventId && this.loadEventDetails(true));
   showDropdown = false;
+  sidebarOpen = true;
+  readonly role = localStorage.getItem('userRole') || '';
+  /** Sidebar heading, as on the role's own pages. */
+  readonly roleLabel = ({ admin: 'Administrator', organizer: 'Organizer', participant: 'Participant' } as Record<string, string>)[this.role] || 'Student';
   studentName = 'Juan Dela Cruz';
   eventId: number | null = null;
   event: EventDetail | null = null;
   loading = true;
   /** The logged-in student/participant already has a registration for this event. */
   isEnrolled = false;
-  /** Set by the organizer on the Attendance page: 'present', 'absent' or 'not_recorded'. */
+  /** Set by the organizer on the Attendance page: 'present', 'not_recorded', or 'pending' (not marked yet). */
   attendance: string | null = null;
   /** An enroll/cancel request is in flight (blocks double clicks). */
   enrollBusy = false;
   
   // Lucide icons
   readonly Menu = Menu;
+  readonly LayoutDashboard = LayoutDashboard;
+  readonly GraduationCap = GraduationCap;
+  readonly Users = Users;
+  readonly UserCircle = UserCircle;
   readonly User = User;
   readonly ChevronDown = ChevronDown;
   readonly ArrowLeft = ArrowLeft;
@@ -96,7 +112,8 @@ export class EventDetails implements OnInit {
     });
   }
 
-  loadEventDetails(): void {
+  /** silent: background auto-refresh (no error dialogs; keeps the page as it is on failure). */
+  loadEventDetails(silent = false): void {
     console.log('Loading event ID:', this.eventId);
     
     this.http.get<any>(`http://localhost:8000/api/events/${this.eventId}`)
@@ -105,6 +122,7 @@ export class EventDetails implements OnInit {
           console.log('Event response received:', response);
           
           if (!response.success || !response.event) {
+            if (silent) return;
             console.error('Invalid response format:', response);
             this.loading = false;
             this.cdr.detectChanges();
@@ -141,6 +159,7 @@ export class EventDetails implements OnInit {
           this.cdr.detectChanges();
         },
         error: (error) => {
+          if (silent) return;
           console.error('Error loading event:', error);
           console.error('Error details:', error.error);
           console.error('Status:', error.status);
@@ -166,8 +185,21 @@ export class EventDetails implements OnInit {
     this.router.navigate(['/login']);
   }
 
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  goTo(path: string): void {
+    this.router.navigate([path]);
+  }
+
+  /** Back to Dashboard: each role goes to its own dashboard (admins open this page too). */
   backToDashboard(): void {
-    this.router.navigate(['/student-dashboard']);
+    const dashboards: Record<string, string> = {
+      admin: '/dashboard',
+      organizer: '/organizer-dashboard',
+    };
+    this.router.navigate([dashboards[localStorage.getItem('userRole') || ''] || '/student-dashboard']);
   }
 
   /** Whether the logged-in user is already enrolled (decides Enroll vs Cancel Enrollment). */
@@ -191,7 +223,7 @@ export class EventDetails implements OnInit {
   /** Cancelling is only allowed during the registration period, before attendance is recorded. */
   get canCancel(): boolean {
     return !!this.event && this.event.status === 'open' && this.registrationOpen && !this.registrationOver
-      && this.attendance !== 'present' && this.attendance !== 'absent';
+      && this.attendance !== 'present';
   }
 
   /** Past the registration end date: enrolling is closed. */

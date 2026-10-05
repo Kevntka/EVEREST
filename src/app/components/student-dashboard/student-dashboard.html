@@ -37,7 +37,7 @@
       <div class="user-menu" (clickOutside)="showDropdown = false">
         <button class="user-dropdown" (click)="toggleDropdown()">
           <lucide-icon [img]="User" [size]="20"></lucide-icon>
-          <span class="user-name">{{ studentName }}</span>
+          <span class="user-name">{{ studentName | displayCase }}</span>
           <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
         </button>
 
@@ -78,12 +78,7 @@
               />
             </div>
 
-            <select class="status-select" [(ngModel)]="selectedStatusLeft">
-              <option value="">Status</option>
-              <option value="open">Open</option>
-              <option value="full">Full</option>
-              <option value="closed">Closed</option>
-            </select>
+            <app-select class="status-select" [options]="statusOptions" [(ngModel)]="selectedStatusLeft"></app-select>
           </div>
 
           <div class="events-list">
@@ -168,48 +163,4 @@
     </div>
   </div>
 
-  <!-- Change Password Modal -->
-  <div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePassword()">
-    <div class="modal-content change-password-modal" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Change Password</h2>
-      
-      <form class="modal-form" (ngSubmit)="changePassword()">
-        <div class="form-field">
-          <label class="form-label">Current Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.currentPassword"
-            name="currentPassword"
-            required
-          />
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">New Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.newPassword"
-            name="newPassword"
-            required
-          />
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Confirm New Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.confirmPassword"
-            name="confirmPassword"
-            required
-          />
-          <app-password-checklist [password]="passwordForm.newPassword"></app-password-checklist>
-        </div>
-
-        <button type="submit" class="btn-create">Change Password</button>
-      </form>
-    </div>
-  </div>
 </div>

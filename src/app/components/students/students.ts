@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, Building2, Phone, UserRound, IdCard, BookOpen } from 'lucide-angular';
@@ -9,6 +10,7 @@ import { DialogService } from '../../services/dialog.service';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { DisplayCasePipe, displayCase } from '../../utils/display-case.pipe';
 export interface Student {
   id: number;
   full_name: string;
@@ -29,7 +31,7 @@ export interface Student {
 @Component({
   selector: 'app-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe, SelectComponent],
   templateUrl: './students.html',
   styleUrl: './students.css'
 })
@@ -42,6 +44,16 @@ export class Students implements OnInit {
   selectedDepartment = '';
   students: Student[] = [];
   filteredStudents: Student[] = [];
+
+  // Unique departments of the loaded students, for the filter dropdown
+  /** Department filter: "All Departments" plus each department (shown in Title Case). */
+  get departmentOptions(): SelectOption[] {
+    return [{ value: '', label: 'All Departments' }, ...this.departments.map(d => ({ value: d, label: displayCase(d) }))];
+  }
+
+  get departments(): string[] {
+    return [...new Set(this.students.map(s => s.department).filter(Boolean))].sort();
+  }
   showViewModal = false;
   selectedStudent: Student | null = null;
   
@@ -92,7 +104,7 @@ export class Students implements OnInit {
         next: (response) => {
           console.log('✅ Students API response:', response);
           this.students = response.students || [];
-          this.filteredStudents = this.students;
+          this.filterStudents();
           console.log('📊 Students loaded:', this.students);
           console.log('📊 Filtered students:', this.filteredStudents);
           

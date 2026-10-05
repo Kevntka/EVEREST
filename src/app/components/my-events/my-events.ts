@@ -19,8 +19,10 @@ import {
 import { ThemeService } from '../../services/theme.service';
 import { formatTimeRange } from '../../utils/event-time';
 import { DialogService } from '../../services/dialog.service';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
+import { autoRefresh } from '../../utils/auto-refresh';
+import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
-import { PasswordChecklist } from '../password-checklist/password-checklist';
 
 export interface MyEvent {
   id: number;
@@ -28,7 +30,7 @@ export interface MyEvent {
   date: string | null;
   time: string; // '8:00 AM - 5:00 PM'
   venue: string;
-  attendance: 'present' | 'absent' | 'not_recorded';  // set by the organizer
+  attendance: 'present' | 'not_recorded' | 'pending';  // set by the organizer; pending = not marked yet
 }
 
 const PAGE_SIZE = 10;
@@ -40,12 +42,15 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-my-events',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, PasswordChecklist],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe],
   templateUrl: './my-events.html',
   styleUrls: ['../student-dashboard/student-dashboard.css', './my-events.css']
 })
 export class MyEvents implements OnInit {
   private dialog = inject(DialogService);
+  /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
+  private autoRefresh = autoRefresh(() => this.loadMyEvents(true));
+  private changePasswordService = inject(ChangePasswordService);
   private router = inject(Router);
   private http = inject(HttpClient);
   readonly themeService = inject(ThemeService);
@@ -55,7 +60,6 @@ export class MyEvents implements OnInit {
   studentName = 'Student';
   readonly roleLabel = localStorage.getItem('userRole') === 'participant' ? 'Participant' : 'Student';
   readonly isStudent = localStorage.getItem('userRole') !== 'participant';
-  showChangePasswordModal = false;
 
   events: MyEvent[] = [];
   loading = true;
@@ -63,7 +67,6 @@ export class MyEvents implements OnInit {
   activeTab: 'all' | 'completed' = 'all';
   currentPage = 1;
 
-  passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
 
   readonly LayoutDashboard = LayoutDashboard;
   readonly UserCircle = UserCircle;
@@ -85,8 +88,9 @@ export class MyEvents implements OnInit {
     this.loadMyEvents();
   }
 
-  loadMyEvents(): void {
-    this.loading = true;
+  /** silent: background auto-refresh (no spinner, no error dialogs). */
+  loadMyEvents(silent = false): void {
+    if (!silent) this.loading = true;
     this.http.get<any>('http://localhost:8000/api/student/my-events', { withCredentials: true })
       .subscribe({
         next: (response) => {
@@ -96,11 +100,12 @@ export class MyEvents implements OnInit {
             date: evt.event_date,
             time: formatTimeRange(evt.event_time, evt.event_end_time),
             venue: evt.venue,
-            attendance: ['present', 'absent'].includes(evt.attendance) ? evt.attendance : 'not_recorded',
+            attendance: ['present', 'not_recorded'].includes(evt.attendance) ? evt.attendance : 'pending',
           }));
           this.loading = false;
         },
         error: (error) => {
+          if (silent) return;  // keep showing the last list
           this.loading = false;
           this.events = [];
           if (error.status === 401) {
@@ -112,7 +117,7 @@ export class MyEvents implements OnInit {
       });
   }
 
-  readonly attendanceLabels = { present: 'Present', absent: 'Absent', not_recorded: 'Not Recorded' };
+  readonly attendanceLabels = { present: 'Present', not_recorded: 'Not Recorded', pending: 'Pending' };
 
   /** "Completed" = events where your attendance was recorded as Present. */
   get completedCount(): number {
@@ -184,33 +189,12 @@ export class MyEvents implements OnInit {
     this.router.navigate(['/login']);
   }
 
+
+  /** Change Password: email a Set New Password link to the logged-in user's email. */
   openChangePassword(): void {
-    this.showChangePasswordModal = true;
     this.showDropdown = false;
+    this.changePasswordService.sendLink();
   }
 
-  closeChangePassword(): void {
-    this.showChangePasswordModal = false;
-    this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
-  }
 
-  changePassword(): void {
-    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-      this.dialog.error('Check your input', 'New passwords do not match!');
-      return;
-    }
-    this.http.post<any>('http://localhost:8000/api/student/change-password', {
-      current_password: this.passwordForm.currentPassword,
-      new_password: this.passwordForm.newPassword
-    }, { withCredentials: true }).subscribe({
-      next: () => {
-        this.dialog.success('Success!', 'Password changed successfully!');
-        this.closeChangePassword();
-      },
-      error: (error) => {
-        this.dialog.error('Something went wrong',
-          error.error?.detail || 'Failed to change password. Please check your current password.');
-      }
-    });
-  }
 }

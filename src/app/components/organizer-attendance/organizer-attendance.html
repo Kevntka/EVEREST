@@ -38,7 +38,7 @@
       <div class="user-menu" (clickOutside)="showDropdown = false">
         <button class="user-dropdown" (click)="toggleDropdown()">
           <lucide-icon [img]="User" [size]="20"></lucide-icon>
-          <span class="user-name">{{ organizerName }}</span>
+          <span class="user-name">{{ organizerName | displayCase }}</span>
           <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
         </button>
 
@@ -74,11 +74,7 @@
             />
           </div>
 
-          <select class="filter-select" [(ngModel)]="selectedFilter">
-            <option value="">All</option>
-            <option value="student">Student</option>
-            <option value="participant">Participant</option>
-          </select>
+          <app-select class="filter-select" [options]="filterOptions" [(ngModel)]="selectedFilter"></app-select>
         </div>
       </div>
 
@@ -102,15 +98,15 @@
           </thead>
           <tbody>
             <tr *ngFor="let attendee of pager.slice(filteredAttendees)">
-              <td>{{ attendee.name }}</td>
+              <td>{{ attendee.name | displayCase }}</td>
               <td>{{ attendee.eventName }}</td>
-              @if (selectedFilter === 'student') { <td>{{ attendee.department }}</td> }
-              @else if (selectedFilter === 'participant') { <td>{{ attendee.address || 'N/A' }}</td> }
+              @if (selectedFilter === 'student') { <td>{{ attendee.department | displayCase }}</td> }
+              @else if (selectedFilter === 'participant') { <td>{{ (attendee.address | displayCase) || 'N/A' }}</td> }
               @else { <td class="role-cell">{{ attendee.type }}</td> }
               <td>{{ attendee.gsuite || attendee.email }}</td>
-              <td>{{ attendee.gender }}</td>
+              <td>{{ attendee.gender | displayCase }}</td>
               <td>{{ attendee.contactNumber }}</td>
-              @if (selectedFilter === 'student') { <td>{{ attendee.yearLevel || 'N/A' }}</td> }
+              @if (selectedFilter === 'student') { <td>{{ (attendee.yearLevel | displayCase) || 'N/A' }}</td> }
               <td>
                 <div class="action-buttons">
                   <button
@@ -121,15 +117,6 @@
                   >
                     <lucide-icon [img]="UserCheck" [size]="16"></lucide-icon>
                     <span>Present</span>
-                  </button>
-                  <button
-                    class="action-btn absent-btn"
-                    [class.active]="attendee.status === 'absent'"
-                    (click)="setAttendance(attendee, 'absent')"
-                    title="Absent"
-                  >
-                    <lucide-icon [img]="UserX" [size]="16"></lucide-icon>
-                    <span>Absent</span>
                   </button>
                   <button
                     class="action-btn not-recorded-btn"
@@ -163,48 +150,4 @@
     </div>
   </div>
 
-  <!-- Change Password Modal -->
-  <div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePassword()">
-    <div class="modal-content change-password-modal" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Change Password</h2>
-      
-      <form class="modal-form" (ngSubmit)="changePassword()">
-        <div class="form-field">
-          <label class="form-label">Current Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.currentPassword"
-            name="currentPassword"
-            required
-          />
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">New Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.newPassword"
-            name="newPassword"
-            required
-          />
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Confirm New Password</label>
-          <input 
-            type="password" 
-            class="form-input"
-            [(ngModel)]="passwordForm.confirmPassword"
-            name="confirmPassword"
-            required
-          />
-          <app-password-checklist [password]="passwordForm.newPassword"></app-password-checklist>
-        </div>
-
-        <button type="submit" class="btn-create">Change Password</button>
-      </form>
-    </div>
-  </div>
 </div>

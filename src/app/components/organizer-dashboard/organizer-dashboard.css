@@ -25,20 +25,6 @@
   margin-left: -220px;
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 1000;
-    margin-left: 0;
-  }
-  
-  .sidebar.closed {
-    margin-left: -220px;
-  }
-}
 
 .logo-section {
   display: flex;
@@ -459,8 +445,22 @@
 }
 
 @media (max-width: 768px) {
+  /* minmax(0, 1fr): cards shrink to the screen instead of growing to fit long labels */
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-info {
+    min-width: 0;
+  }
+
+  .stat-title {
+    overflow-wrap: break-word;
   }
 
   .top-bar {
@@ -599,4 +599,12 @@
 
 :host-context(body.dark-mode) .progress-bar-container {
   border-color: #404040;
+}
+
+/* Very narrow: icon above the text so labels like "Participants" stay whole */
+@media (max-width: 480px) {
+  .stat-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

@@ -75,9 +75,7 @@
             />
           </div>
 
-          <select class="department-select" [(ngModel)]="selectedDepartment" (ngModelChange)="filterStudents()">
-            <option value="">All Departments</option>
-          </select>
+          <app-select class="department-select" [options]="departmentOptions" [(ngModel)]="selectedDepartment" (ngModelChange)="filterStudents()"></app-select>
         </div>
       </div>
 
@@ -98,12 +96,12 @@
           </thead>
           <tbody>
             <tr *ngFor="let student of pager.slice(filteredStudents)">
-              <td>{{ student.full_name }}</td>
-              <td>{{ student.department }}</td>
+              <td>{{ student.full_name | displayCase }}</td>
+              <td>{{ student.department | displayCase }}</td>
               <td>{{ student.email }}</td>
-              <td>{{ student.gender }}</td>
+              <td>{{ student.gender | displayCase }}</td>
               <td>{{ student.contact_number }}</td>
-              <td>{{ student.year_level }}</td>
+              <td>{{ student.year_level | displayCase }}</td>
               <td>
                 <div class="action-buttons">
                   <button class="action-btn view-btn" (click)="viewStudent(student)" aria-label="View student">

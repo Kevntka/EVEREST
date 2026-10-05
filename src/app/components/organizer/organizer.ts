@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Plus, Edit, Trash2 } from 'lucide-angular';
@@ -10,6 +11,7 @@ import { DialogService } from '../../services/dialog.service';
 import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { DisplayCasePipe, displayCase } from '../../utils/display-case.pipe';
 export interface Organizer {
   id: number;
   employment_id: string;
@@ -26,7 +28,7 @@ export interface Organizer {
 @Component({
   selector: 'app-organizer',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe, SelectComponent],
   templateUrl: './organizer.html',
   styleUrl: './organizer.css'
 })
@@ -42,7 +44,26 @@ export class Organizer implements OnInit {
   editingOrganizerId: number | null = null;
   organizers: Organizer[] = [];
   isLoading = true; // Add loading state
-  
+
+  // Unique departments of the loaded organizers, for the filter dropdown
+  /** Department filter: "All Departments" plus each department (shown in Title Case). */
+  get departmentOptions(): SelectOption[] {
+    return [{ value: '', label: 'All Departments' }, ...this.departments.map(d => ({ value: d, label: displayCase(d) }))];
+  }
+
+  get departments(): string[] {
+    return [...new Set(this.organizers.map(o => o.department).filter(Boolean))].sort();
+  }
+
+  // Organizers matching the search box and the department filter
+  get filteredOrganizers(): Organizer[] {
+    const name = this.searchName.trim().toLowerCase();
+    return this.organizers.filter(o =>
+      (o.full_name || '').toLowerCase().includes(name) &&
+      (this.selectedDepartment === '' || o.department === this.selectedDepartment)
+    );
+  }
+
   // Form fields
   newOrganizer = {
     employmentId: '',
@@ -334,6 +355,9 @@ export class Organizer implements OnInit {
     formData.append('email', this.newOrganizer.email);
     formData.append('contact_number', this.newOrganizer.contactNumber);
 
+    // Saved now: closeAddModal() clears the form before the messages below are shown
+    const name = displayCase(this.newOrganizer.fullName.trim());
+
     this.isSaving = true;
     if (this.editingOrganizerId !== null) {
       this.http.put<any>(`http://localhost:8000/api/organizers/${this.editingOrganizerId}`, formData)
@@ -342,7 +366,7 @@ export class Organizer implements OnInit {
           next: () => {
             this.closeAddModal();
             this.loadOrganizers();
-            this.dialog.success('Success!', 'Organizer updated successfully');
+            this.dialog.success('Success!', `Your changes to ${name} have been saved.`);
           },
           error: (error) => {
             console.error('Error updating organizer:', error);
@@ -382,16 +406,16 @@ export class Organizer implements OnInit {
             console.log('✅ SMTP confirmed email delivery');
             this.dialog.success(
               'Success!',
-              `Organizer created successfully! Login credentials were sent to ${credentials.email}.
-If they don't see it in their inbox, ask them to check their Spam folder.`
+              `${name} is now an organizer. We're sending their login details to ${credentials.email}.\n\n` +
+              `If they can't find the email, ask them to check their Spam folder.`
             );
           } else {
             // WARNING PATH: Email failed but organizer was created
             console.warn('⚠️ Organizer created but email failed');
             this.dialog.warning(
-              'Created, but Email Failed',
-              'The organizer account was created, but the email could not be sent. ' +
-              'Share these credentials manually:\n\n' +
+              'Created, but Email Is Off',
+              `${name}'s account is ready, but sending emails is turned off (EMAIL_ENABLED=false). ` +
+              'Please send them these login details yourself:\n\n' +
               `Email: ${credentials.email}\n` +
               `Password: ${credentials.password}`
             );
@@ -428,7 +452,7 @@ If they don't see it in their inbox, ask them to check their Spam folder.`
     this.http.delete(`http://localhost:8000/api/organizers/${id}`)
       .subscribe({
         next: () => {
-          this.dialog.success('Deleted!', 'Organizer deleted successfully.');
+          this.dialog.success('Deleted!', 'The organizer has been deleted, along with their events.');
           this.loadOrganizers();
         },
         error: (error) => {

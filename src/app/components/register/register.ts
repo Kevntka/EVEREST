@@ -1,13 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SelectComponent],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
@@ -17,6 +18,7 @@ export class Register implements OnInit {
   errorMessage: string = '';
 
   roles: string[] = ['Student', 'Participant'];
+  readonly roleOptions: SelectOption[] = this.roles.map(r => ({ value: r, label: r }));
 
   constructor(
     private router: Router,

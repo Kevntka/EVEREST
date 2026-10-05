@@ -38,7 +38,7 @@
       <div class="user-menu" (clickOutside)="showDropdown = false">
         <button class="user-dropdown" (click)="toggleDropdown()">
           <lucide-icon [img]="User" [size]="20"></lucide-icon>
-          <span class="user-name">{{ profile.fullName }}</span>
+          <span class="user-name">{{ profile.fullName | displayCase }}</span>
           <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
         </button>
 
@@ -154,16 +154,7 @@
                 <div class="detail-row">
                   <div class="detail-label">Year Level</div>
                   <div class="detail-value" *ngIf="!isEditing">{{ profile.yearLevel }}</div>
-                  <select 
-                    *ngIf="isEditing" 
-                    class="detail-input" 
-                    [(ngModel)]="profile.yearLevel"
-                  >
-                    <option value="">SELECT YEAR LEVEL</option>
-                    @for (level of yearLevels; track level) {
-                      <option [value]="level">{{ level }}</option>
-                    }
-                  </select>
+                  <app-select *ngIf="isEditing" class="detail-input" placeholder="SELECT YEAR LEVEL" [options]="yearLevelOptions" [(ngModel)]="profile.yearLevel"></app-select>
                 </div>
               } @else {
                 <div class="detail-row">
@@ -206,15 +197,7 @@
               <div class="detail-row">
                 <div class="detail-label">Gender</div>
                 <div class="detail-value" *ngIf="!isEditing">{{ profile.gender }}</div>
-                <select 
-                  *ngIf="isEditing" 
-                  class="detail-input" 
-                  [(ngModel)]="profile.gender"
-                >
-                  <option value="">SELECT GENDER</option>
-                  <option value="MALE">MALE</option>
-                  <option value="FEMALE">FEMALE</option>
-                </select>
+                <app-select *ngIf="isEditing" class="detail-input" placeholder="SELECT GENDER" [options]="genderOptions" [(ngModel)]="profile.gender"></app-select>
               </div>
 
               <div class="detail-row">

@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { 
@@ -20,6 +21,8 @@ import {
 import { ThemeService } from '../../services/theme.service';
 
 import { DialogService } from '../../services/dialog.service';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
+import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 export interface ProfileData {
   fullName: string;
@@ -40,12 +43,13 @@ export interface ProfileData {
 @Component({
   selector: 'app-student-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, SelectComponent, DisplayCasePipe],
   templateUrl: './student-profile.html',
   styleUrl: './student-profile.css'
 })
 export class StudentProfile implements OnInit {
   private dialog = inject(DialogService);
+  private changePasswordService = inject(ChangePasswordService);
   showDropdown = false;
   sidebarOpen = true;
   isEditing = false;
@@ -82,6 +86,8 @@ export class StudentProfile implements OnInit {
   readonly Check = Check;
 
   readonly yearLevels = ['1ST YEAR', '2ND YEAR', '3RD YEAR', '4TH YEAR'];
+  readonly yearLevelOptions: SelectOption[] = this.yearLevels.map(l => ({ value: l, label: l }));
+  readonly genderOptions: SelectOption[] = [{ value: 'MALE', label: 'MALE' }, { value: 'FEMALE', label: 'FEMALE' }];
   /** Birthday picker can't go past today. */
   readonly today = new Date().toLocaleDateString('en-CA');
 
@@ -165,9 +171,11 @@ export class StudentProfile implements OnInit {
       });
   }
 
+
+  /** Change Password: email a Set New Password link to the logged-in user's email. */
   openChangePassword(): void {
-    // Navigate to change password or open modal
-    console.log('Change password');
+    this.showDropdown = false;
+    this.changePasswordService.sendLink();
   }
 
   /**

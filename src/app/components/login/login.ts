@@ -66,21 +66,18 @@ export class Login implements OnInit, AfterViewInit {
       // ready() waits until render() is usable (onload can fire before that)
       grecaptcha.ready(() => {
         this.ngZone.runOutsideAngular(() => {
-          const elements = document.getElementsByClassName('g-recaptcha');
-          if (elements.length > 0) {
-            // Remove existing widget if it exists
-            if (this.recaptchaWidgetId !== null) {
-              try {
-                elements[0].innerHTML = '';
-                this.recaptchaWidgetId = null;
-              } catch (e) {
-                console.log('Error clearing recaptcha:', e);
-              }
-            }
-            
+          const container = document.getElementsByClassName('g-recaptcha')[0];
+          if (container) {
+            // Google refuses to render twice into the same element ("already rendered"),
+            // so each render (e.g. after a theme change) gets a fresh child element
+            container.innerHTML = '';
+            this.recaptchaWidgetId = null;
+            const target = document.createElement('div');
+            container.appendChild(target);
+
             // Render new widget with current theme
             try {
-              this.recaptchaWidgetId = grecaptcha.render(elements[0], {
+              this.recaptchaWidgetId = grecaptcha.render(target, {
                 'sitekey': this.recaptchaSiteKey,
                 'theme': this.themeService.isDarkMode() ? 'dark' : 'light'
               });

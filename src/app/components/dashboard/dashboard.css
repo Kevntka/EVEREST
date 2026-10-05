@@ -25,20 +25,6 @@
   margin-left: -220px;
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 1000;
-    margin-left: 0;
-  }
-  
-  .sidebar.closed {
-    margin-left: -220px;
-  }
-}
 
 .logo-section {
   display: flex;
@@ -403,39 +389,6 @@
   border-top: 1px solid #e9ecef;
 }
 
-.pagination-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
-  background-color: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: #495057;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:not(:disabled):hover {
-  background-color: #dc3545;
-  border-color: #dc3545;
-  color: #ffffff;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background-color: #f8f9fa;
-}
-
-.pagination-info {
-  font-size: 13px;
-  color: #6c757d;
-  font-weight: 500;
-}
-
 /* Responsive Design */
 @media (max-width: 1200px) {
   .stats-grid {
@@ -444,8 +397,22 @@
 }
 
 @media (max-width: 768px) {
+  /* minmax(0, 1fr): cards shrink to the screen instead of growing to fit long labels */
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-info {
+    min-width: 0;
+  }
+
+  .stat-title {
+    overflow-wrap: break-word;
   }
 
   .top-bar {
@@ -631,12 +598,18 @@
 /* Dark mode (host-context needed to beat encapsulated component styles) */
 :host-context(body.dark-mode) .events-table th,
 :host-context(body.dark-mode) .events-table td,
-:host-context(body.dark-mode) .empty-state,
-:host-context(body.dark-mode) .pagination-btn,
-:host-context(body.dark-mode) .pagination-info {
+:host-context(body.dark-mode) .empty-state {
   color: #ffffff;
 }
 
 :host-context(body.dark-mode) .events-table tbody tr:hover {
   background-color: #3a3a3a;
+}
+
+/* Very narrow: icon above the text so labels like "Participants" stay whole */
+@media (max-width: 480px) {
+  .stat-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

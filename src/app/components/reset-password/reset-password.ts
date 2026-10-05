@@ -70,6 +70,9 @@ export class ResetPassword implements OnInit {
     this.http.post<any>('http://localhost:8000/api/reset-password', formData)
       .subscribe({
         next: (response) => {
+          // Opened from Change Password while logged in: end that session so the
+          // user logs in again with the new password
+          this.signOutIfLoggedIn();
           this.dialog.success('Success!', 'Password reset successfully! You can now login.');
           this.router.navigate(['/login']);
         },
@@ -84,6 +87,13 @@ export class ResetPassword implements OnInit {
           this.dialog.error('Something went wrong', errorMessage);
         }
       });
+  }
+
+  private signOutIfLoggedIn(): void {
+    if (!localStorage.getItem('userRole')) return;
+    ['userToken', 'userRole', 'userName', 'userId', 'organizerId', 'organizerName']
+      .forEach(key => localStorage.removeItem(key));
+    this.http.post('http://localhost:8000/api/logout', {}, { withCredentials: true }).subscribe({ error: () => {} });
   }
 
   backToLogin(): void {

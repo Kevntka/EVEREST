@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { 
@@ -21,10 +22,12 @@ import {
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
+import { autoRefresh } from '../../utils/auto-refresh';
+import { ChangePasswordService } from '../../services/change-password.service';
 
 import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
-import { PasswordChecklist } from '../password-checklist/password-checklist';
 import { Paginator } from '../../utils/paginator';
 import { displayStatus, registrationOpensOn } from '../../utils/registration';
 export interface Event {
@@ -47,7 +50,7 @@ export interface Event {
 @Component({
   selector: 'app-organizer-events',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, PasswordChecklist],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, SelectComponent, DisplayCasePipe],
   templateUrl: './organizer-events.html',
   styleUrl: './organizer-events.css'
 })
@@ -55,8 +58,11 @@ export class OrganizerEvents implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   isSaving = false; // disables the submit button while the request runs
   private dialog = inject(DialogService);
+  readonly statusOptions: SelectOption[] = [{ value: '', label: 'Status' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'open', label: 'Open' }, { value: 'full', label: 'Full' }, { value: 'closed', label: 'Closed' }];
+  /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
+  private autoRefresh = autoRefresh(() => this.loadEvents());
+  private changePasswordService = inject(ChangePasswordService);
   showDropdown = false;
-  showChangePasswordModal = false;
   sidebarOpen = true;
   organizerName = 'Juan Dela Cruz';
   
@@ -84,11 +90,6 @@ export class OrganizerEvents implements OnInit {
     coverPhoto: null as File | null
   };
 
-  passwordForm = {
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  };
   
   // Lucide icons
   readonly LayoutDashboard = LayoutDashboard;
@@ -330,38 +331,12 @@ export class OrganizerEvents implements OnInit {
       });
   }
 
+
+  /** Change Password: email a Set New Password link to the logged-in user's email. */
   openChangePassword(): void {
-    this.showChangePasswordModal = true;
     this.showDropdown = false;
+    this.changePasswordService.sendLink();
   }
 
-  closeChangePassword(): void {
-    this.showChangePasswordModal = false;
-    this.passwordForm = {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    };
-  }
 
-  changePassword(): void {
-    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-      this.dialog.error('Check your input', 'New passwords do not match!');
-      return;
-    }
-
-    this.http.post<any>('http://localhost:8000/api/organizer/change-password', {
-      current_password: this.passwordForm.currentPassword,
-      new_password: this.passwordForm.newPassword
-    }, { withCredentials: true }).subscribe({
-      next: (response) => {
-        this.dialog.success('Success!', 'Password changed successfully!');
-        this.closeChangePassword();
-      },
-      error: (error) => {
-        console.error('Error changing password:', error);
-        this.dialog.error('Something went wrong', error.error?.detail || 'Failed to change password. Please check your current password.');
-      }
-    });
-  }
 }

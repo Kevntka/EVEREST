@@ -9,6 +9,7 @@ import { DialogService } from '../../services/dialog.service';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { DisplayCasePipe } from '../../utils/display-case.pipe';
 export interface Participant {
   id: number;
   full_name: string;
@@ -28,7 +29,7 @@ export interface Participant {
 @Component({
   selector: 'app-participants',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe],
   templateUrl: './participants.html',
   styleUrl: './participants.css'
 })

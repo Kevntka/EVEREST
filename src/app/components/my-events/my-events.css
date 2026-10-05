@@ -105,9 +105,11 @@
   color: #047857;
 }
 
-.attendance-badge.absent {
-  background-color: #fee2e2;
-  color: #b91c1c;
+
+/* Not marked by the organizer yet */
+.attendance-badge.pending {
+  background-color: #fef3c7;
+  color: #b45309;
 }
 
 .my-events-table .btn-view-details {
@@ -124,34 +126,6 @@
   padding-top: 16px;
   margin-top: 8px;
   border-top: 1px solid #e9ecef;
-}
-
-.pagination-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
-  background-color: #ffffff;
-  color: #495057;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:not(:disabled):hover {
-  background-color: #dc3545;
-  border-color: #dc3545;
-  color: #ffffff;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  font-size: 13px;
-  font-weight: 500;
-  color: #6c757d;
 }
 
 /* Dark mode */
@@ -197,23 +171,14 @@
   color: #6ee7b7;
 }
 
-:host-context(body.dark-mode) .attendance-badge.absent {
-  background-color: #4c1d1d;
-  color: #fca5a5;
+
+:host-context(body.dark-mode) .attendance-badge.pending {
+  background-color: #4a3a12;
+  color: #fcd34d;
 }
 
 :host-context(body.dark-mode) .table-pagination {
   border-top-color: #404040;
-}
-
-:host-context(body.dark-mode) .pagination-btn {
-  background-color: #2d2d2d;
-  border-color: #404040;
-  color: #ffffff;
-}
-
-:host-context(body.dark-mode) .pagination-info {
-  color: #ffffff;
 }
 
 /* Fill the screen: the card stretches to the bottom, rows scroll inside it,
@@ -269,12 +234,13 @@
   flex-shrink: 0;
 }
 
-/* No sideways scrollbar: the table fits the card width */
+/* Same as the other list tables (styles.css): wide screens fit the card; narrower
+   cards keep the table at 760px and scroll sideways instead of squeezing the columns */
 .table-scroll {
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
 }
 
 .table-scroll > .my-events-table {
-  min-width: 0;
+  min-width: 760px;
 }

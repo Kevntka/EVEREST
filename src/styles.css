@@ -196,10 +196,47 @@ body.dark-mode .table-pagination {
   border-top-color: #404040;
 }
 
+/* Pagination buttons (< 1 of 1 >) shared by every table page. Kept here only,
+   not in the component CSS, so light and dark mode look the same everywhere. */
+.pagination-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  background-color: #ffffff;
+  color: #343a40;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:not(:disabled):hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #ffffff;
+}
+
+.pagination-btn:disabled {
+  background-color: #f1f3f5;
+  border-color: #dee2e6;
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+}
+
 body.dark-mode .pagination-btn {
-  background-color: #2d2d2d;
-  border-color: #404040;
-  color: #b0b0b0;
+  background-color: #3a3a3a;
+  border-color: #555555;
+  color: #ffffff;
 }
 
 body.dark-mode .pagination-btn:not(:disabled):hover {
@@ -209,11 +246,13 @@ body.dark-mode .pagination-btn:not(:disabled):hover {
 }
 
 body.dark-mode .pagination-btn:disabled {
-  background-color: #3a3a3a;
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #6c6c6c;
 }
 
 body.dark-mode .pagination-info {
-  color: #b0b0b0;
+  color: #ffffff;
 }
 
 /* Dark Mode - Modal */
@@ -310,16 +349,18 @@ body .page-fill .table-container {
 body .page-fill .table-scroll {
   flex: 1;
   min-height: 0;
-  overflow-x: hidden; /* no sideways scrollbar: tables fit the card width */
+  overflow-x: auto; /* narrow screens: the table keeps its width and scrolls sideways */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
 
-/* Overrides each page's table min-width so the table fits instead of scrolling sideways */
+/* One minimum width for every list table (replaces each page's own min-width): wide
+   screens fit the card with no scrollbar; narrower cards scroll sideways instead of
+   squeezing the columns */
 body .page-fill .table-scroll > table {
   flex-shrink: 0;
-  min-width: 0;
+  min-width: 760px;
 }
 
 body .page-fill .table-scroll thead th {
@@ -352,4 +393,41 @@ body .table-empty {
 
 body.dark-mode .table-empty {
   color: #b0b0b0;
+}
+
+/* ---------- Top bar on small screens (every page with a sidebar) ----------
+   Long page titles and user names get "..." instead of pushing past the edge;
+   on very narrow screens only the user icon shows (the dropdown still works). */
+@media (max-width: 768px) {
+  body .top-bar {
+    gap: 8px;
+  }
+
+  body .top-bar-left {
+    min-width: 0;
+    gap: 12px;
+  }
+
+  body .top-bar .page-title,
+  body .top-bar .user-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body .top-bar .user-name {
+    max-width: 120px;
+  }
+
+  body .top-bar .menu-toggle,
+  body .top-bar .user-menu {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  body .top-bar .user-name {
+    display: none;
+  }
 }

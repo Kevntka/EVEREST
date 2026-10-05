@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, UserCheck, CalendarCheck, CalendarX2, CalendarX, Eye, Trash2 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
+import { autoRefresh } from '../../utils/auto-refresh';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
@@ -38,6 +39,8 @@ export interface Event {
 export class Dashboard implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   private dialog = inject(DialogService);
+  /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
+  private autoRefresh = autoRefresh(() => this.loadEvents());
   showDropdown = false;
   sidebarOpen = true;
   events: Event[] = [];
@@ -105,8 +108,9 @@ export class Dashboard implements OnInit {
           
           // Calculate event statistics
           this.totalEvents = this.events.length;
-          this.openEvents = this.events.filter(e => e.status === 'open').length;
-          this.closedEvents = this.events.filter(e => e.status === 'closed').length;
+          // Same status as the badges: upcoming events (registration not started) are neither
+          this.openEvents = this.events.filter(e => ['open', 'full'].includes(this.badgeStatus(e))).length;
+          this.closedEvents = this.events.filter(e => this.badgeStatus(e) === 'closed').length;
           
           // Force Angular to detect changes
           this.cdr.detectChanges();
