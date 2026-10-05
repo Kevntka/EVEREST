@@ -16,7 +16,7 @@ load_dotenv()
 # Change 'postgres' password below to your actual PostgreSQL password
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:Kevin22melgar@localhost:5432/everest_db"  # Change 'admin' to your password
+    "postgresql://postgres:Kevin22melgar@localhost:5432/ers_db"  # Change 'admin' to your password
 )
 
 # Create SQLAlchemy engine

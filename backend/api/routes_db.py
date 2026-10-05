@@ -3,7 +3,7 @@ API Routes with PostgreSQL Database Integration
 Matching the actual database schema
 """
 
-from fastapi import APIRouter, Form, Depends, HTTPException, Request
+from fastapi import APIRouter, Form, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -365,6 +365,7 @@ async def register_participant(
 
 @router.post("/organizers")
 async def create_organizer(
+    background_tasks: BackgroundTasks,
     employment_id: str = Form(...),
     full_name: str = Form(...),
     department: str = Form(...),
@@ -373,7 +374,8 @@ async def create_organizer(
     db: Session = Depends(get_db)
 ):
     """
-    Create organizer (admin only)
+    Create organizer (admin only). The credentials email is sent in the background
+    after the response (SMTP takes ~10 s), so the admin doesn't wait for it.
     """
     try:
         print(f"\n🔧 Creating organizer: {full_name} ({email})")
@@ -420,85 +422,51 @@ async def create_organizer(
         db.add(user_role)
         db.commit()
         
-        # Send email with credentials and WAIT for SMTP confirmation
-        from services.email_service import send_organizer_credentials
-        
-        print(f"\n📧 Sending credentials to {email}...")
-        print(f"   ├─ Connecting to SMTP server...")
-        print(f"   ├─ Authenticating...")
-        print(f"   ├─ Sending email...")
-        
-        email_sent = False
-        email_message = ""
-        
-        # Sending is controlled by EMAIL_ENABLED in backend/.env
-        try:
-            # IMPORTANT: Check the return value from SMTP confirmation
-            email_sent = await send_organizer_credentials(
-                to_email=email,
-                organizer_name=full_name,
-                employment_id=employment_id,
-                password=random_password  # Send the random password
-            )
+        organizer = {
+            "id": new_user.id,
+            "employment_id": employment_id,
+            "full_name": full_name,
+            "department": department,
+            "email": email,
+            "contact_number": contact_number
+        }
 
-            if email_sent:
-                print(f"   └─ ✅ SMTP confirmed email delivery")
-                email_message = "Credentials sent via email"
-            else:
-                print(f"   └─ ⚠️ Email sending failed (no exception but returned False)")
-                email_message = "Email failed to send. Please share credentials manually."
-
-        except Exception as e:
-            print(f"   └─ ❌ Error: {e}")
-            email_sent = False
-            email_message = f"Email failed: {str(e)}. Please share credentials manually."
-        
-        # Return different response based on email success
-        if email_sent:
+        from services.email_service import EMAIL_ENABLED, send_organizer_credentials
+        if not EMAIL_ENABLED:
+            # No email will go out: show the admin the password to share themselves
             return JSONResponse(
                 status_code=201,
                 content={
                     "success": True,
-                    "message": f"Organizer created successfully and credentials sent via email",
-                    "organizer": {
-                        "id": new_user.id,
-                        "employment_id": employment_id,
-                        "full_name": full_name,
-                        "department": department,
-                        "email": email,
-                        "contact_number": contact_number
-                    },
-                    "credentials": {
-                        "email": email,
-                        "password": random_password,
-                        "note": "Credentials have been sent to the organizer's email"
-                    },
-                    "email_sent": True
-                }
-            )
-        else:
-            return JSONResponse(
-                status_code=201,
-                content={
-                    "success": True,
-                    "message": f"Organizer created but email could not be sent",
-                    "organizer": {
-                        "id": new_user.id,
-                        "employment_id": employment_id,
-                        "full_name": full_name,
-                        "department": department,
-                        "email": email,
-                        "contact_number": contact_number
-                    },
-                    "credentials": {
-                        "email": email,
-                        "password": random_password,
-                        "note": f"{email_message}"
-                    },
+                    "message": "Organizer created but email is disabled (EMAIL_ENABLED=false)",
+                    "organizer": organizer,
+                    "credentials": {"email": email, "password": random_password},
                     "email_sent": False
                 }
             )
-    
+
+        # Sent after this response is returned. If delivery fails it is only logged
+        # (the organizer can still use Forgot Password on the login page).
+        background_tasks.add_task(
+            send_organizer_credentials,
+            to_email=email,
+            organizer_name=full_name,
+            employment_id=employment_id,
+            password=random_password
+        )
+        print(f"📧 Credentials email to {email} queued (sent in the background)")
+
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": "Organizer created; credentials are being emailed",
+                "organizer": organizer,
+                "credentials": {"email": email},
+                "email_sent": True
+            }
+        )
+
     except HTTPException as http_ex:
         # Re-raise HTTP exceptions (like 400 for duplicate email)
         print(f"❌ HTTP Exception: {http_ex.detail}")
@@ -739,39 +707,37 @@ async def forgot_password(email: str = Form(...), db: Session = Depends(get_db))
         # reveal whether an email has an account)
         raise HTTPException(status_code=404, detail="No account is registered with this email.")
     
-    # Generate reset token
+    return await _send_reset_link(db, user)
+
+
+async def _send_reset_link(db: Session, user: User) -> JSONResponse:
+    """
+    Email the user a one-hour link to the Set New Password page (/reset-password).
+    Used by Forgot Password and by Change Password for logged-in users.
+    """
     import secrets
-    token = secrets.token_urlsafe(32)
-    
-    # Set expiration (1 hour from now)
     from datetime import datetime, timedelta
-    expires_at = datetime.now() + timedelta(hours=1)
-    
-    # Save token to database
     from sqlalchemy import text
-    query = text("""
-        INSERT INTO password_reset_tokens (user_id, token, expires_at)
-        VALUES (:user_id, :token, :expires_at)
-    """)
-    
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(hours=1)
+
     try:
-        db.execute(query, {
-            "user_id": user.id,
-            "token": token,
-            "expires_at": expires_at
-        })
+        db.execute(text("""
+            INSERT INTO password_reset_tokens (user_id, token, expires_at)
+            VALUES (:user_id, :token, :expires_at)
+        """), {"user_id": user.id, "token": token, "expires_at": expires_at})
         db.commit()
-        
-        # Send email with reset link
+
         reset_link = f"http://localhost:4200/reset-password?token={token}"
-        
+
         from services.email_service import send_password_reset_email
         email_sent = await send_password_reset_email(
-            to_email=email,
+            to_email=user.email,
             reset_link=reset_link,
             user_name=user.full_name
         )
-        
+
         if not email_sent:
             raise HTTPException(
                 status_code=503,
@@ -783,6 +749,7 @@ async def forgot_password(email: str = Form(...), db: Session = Depends(get_db))
             content={
                 "success": True,
                 "message": "A password reset link has been sent to your email",
+                "email": user.email,
                 "email_sent": True
             }
         )
@@ -790,7 +757,7 @@ async def forgot_password(email: str = Form(...), db: Session = Depends(get_db))
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error in forgot password: {e}")
+        print(f"Error sending password reset link: {e}")
         raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
@@ -1194,7 +1161,11 @@ def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
     # events.user_role_id references the organizer's user_roles row
     events_query = text("""
         SELECT e.id, e.event_name, e.capacity, e.status,
-               COUNT(r.id) AS enrolled
+               COUNT(r.id) AS enrolled,
+               -- open for enrolling now: not upcoming (registration started) and not past the registration end
+               (e.status = 'open'
+                AND COALESCE(e.registration_start, e.event_date, CURRENT_DATE) <= CURRENT_DATE
+                AND (e.registration_end IS NULL OR e.registration_end >= CURRENT_DATE)) AS enrolling
         FROM events e
         JOIN user_roles ur ON ur.id = e.user_role_id
         LEFT JOIN registrations r ON r.event_id = e.id
@@ -1204,10 +1175,17 @@ def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
     """)
     events = db.execute(events_query, {"organizer_id": organizer_id}).fetchall()
 
+    # Students/participants are every registered (verified) account, not only
+    # those enrolled in this organizer's events
+    accounts_query = text("""
+        SELECT COUNT(*) FILTER (WHERE role = 'student') AS students,
+               COUNT(*) FILTER (WHERE role = 'participant') AS participants
+        FROM users
+    """)
+    accounts = db.execute(accounts_query).first()
+
     totals_query = text("""
-        SELECT COUNT(DISTINCT r.user_id) FILTER (WHERE u.role = 'student') AS students,
-               COUNT(DISTINCT r.user_id) FILTER (WHERE u.role = 'participant') AS participants,
-               COUNT(r.id) AS total_enrollment,
+        SELECT COUNT(r.id) AS total_enrollment,
                COUNT(a.id) FILTER (WHERE a.attendance_status = 'present') AS present
         FROM registrations r
         JOIN users u ON u.id = r.user_id
@@ -1218,16 +1196,16 @@ def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
     """)
     totals = db.execute(totals_query, {"organizer_id": organizer_id}).first()
 
-    total_enrollment = totals[2] or 0
-    present = totals[3] or 0
+    total_enrollment = totals[0] or 0
+    present = totals[1] or 0
 
     return {
         "success": True,
         "stats": {
-            "students": totals[0] or 0,
-            "participants": totals[1] or 0,
+            "students": accounts[0] or 0,
+            "participants": accounts[1] or 0,
             "totalEnrollment": total_enrollment,
-            "openEvents": sum(1 for e in events if e[3] == 'open')
+            "openEvents": sum(1 for e in events if e[5])
         },
         "enrollmentData": [
             {"eventName": e[1], "enrolled": e[4], "capacity": e[2] or 0}
@@ -1252,7 +1230,7 @@ def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
         SELECT r.id, u.full_name, u.email, u.role, e.event_name,
                d.department_name, ur.contact_number,
                COALESCE(a.gender, ur.gender), COALESCE(a.year_level::text, ur.year_level),
-               COALESCE(a.attendance_status, 'not_recorded') AS status,
+               COALESCE(a.attendance_status, 'pending') AS status,
                COALESCE(a.address, ur.address) AS address
         FROM registrations r
         JOIN users u ON u.id = r.user_id
@@ -1294,12 +1272,12 @@ class AttendanceUpdate(BaseModel):
 @router.put("/organizer/attendees/{registration_id}/attendance")
 def update_attendance(registration_id: int, body: AttendanceUpdate, db: Session = Depends(get_db)):
     """
-    Mark a registration as present, absent or not recorded (the student sees it on My Events)
+    Mark a registration as present or not recorded (the student sees it on My Events)
     """
     from sqlalchemy import text
 
-    if body.status not in ("present", "absent", "not_recorded"):
-        raise HTTPException(status_code=400, detail="Status must be 'present', 'absent' or 'not_recorded'")
+    if body.status not in ("present", "not_recorded"):
+        raise HTTPException(status_code=400, detail="Status must be 'present' or 'not_recorded'")
 
     registration = db.execute(text("""
         SELECT r.id, u.full_name, u.email, ur.contact_number, ur.department_id
@@ -1383,7 +1361,7 @@ def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db
     from sqlalchemy import text
 
     row = db.execute(text("""
-        SELECT COALESCE(a.attendance_status, 'not_recorded') AS attendance
+        SELECT COALESCE(a.attendance_status, 'pending') AS attendance
         FROM registrations r
         LEFT JOIN attendees a ON a.registration_id = r.id
         WHERE r.event_id = :event_id AND r.user_id = :user_id
@@ -1391,7 +1369,8 @@ def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db
     return {
         "success": True,
         "enrolled": row is not None,
-        "attendance": row.attendance if row else None,  # 'present', 'absent' or 'not_recorded'
+        # 'present', 'not_recorded', or 'pending' (the organizer hasn't marked it yet)
+        "attendance": row.attendance if row else None,
     }
 
 
@@ -1418,7 +1397,7 @@ def cancel_enrollment(event_id: int, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="You are not enrolled in this event")
     if row.status != 'open':
         raise HTTPException(status_code=400, detail="This event is already closed, so the enrollment can't be cancelled")
-    if row.attendance_status in ('present', 'absent'):
+    if row.attendance_status == 'present':
         raise HTTPException(status_code=400, detail="Your attendance was already recorded for this event")
     today = date.today()
     if (row.opens_on and today < row.opens_on) or (row.registration_end and today > row.registration_end):
@@ -1568,30 +1547,16 @@ def update_organizer(
     return {"success": True, "message": "Organizer updated successfully"}
 
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
-
-
-@router.post("/organizer/change-password")
-@router.post("/student/change-password")
 @router.post("/change-password")
-def change_password(body: ChangePasswordRequest, request: Request, db: Session = Depends(get_db)):
+async def request_change_password_link(request: Request, db: Session = Depends(get_db)):
     """
-    Change the logged-in user's password (identified by the login cookie)
+    Change Password for a logged-in user: email a Set New Password link to the
+    email of the account in the login cookie (never an address sent by the client)
     """
-    from auth.jwt_handler import hash_password
-
     user = db.query(User).filter(User.id == current_user_id(request)).first()
     if not user:
         raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    if not verify_bcrypt_password(body.current_password, user.password):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    require_password(body.new_password)
-
-    user.password = hash_password(body.new_password)
-    db.commit()
-    return {"success": True, "message": "Password changed successfully"}
+    return await _send_reset_link(db, user)
 
 
 def _avatar_url(user_id: int, user_role) -> str:
@@ -1966,7 +1931,8 @@ async def resend_verification(email: str = Form(...), db: Session = Depends(get_
 def get_my_events(request: Request, db: Session = Depends(get_db)):
     """
     Events the logged-in student/participant enrolled in, with their attendance
-    ('present', 'absent' or 'not_recorded'). Identified by the login cookie.
+    ('present', 'not_recorded', or 'pending' when the organizer hasn't
+    marked it yet). Identified by the login cookie.
     """
     from sqlalchemy import text
 
@@ -1974,7 +1940,7 @@ def get_my_events(request: Request, db: Session = Depends(get_db)):
     _close_finished_events(db)
     rows = db.execute(text("""
         SELECT e.id, e.event_name, e.event_date, e.event_time, e.event_end_time, e.venue, e.status,
-               COALESCE(a.attendance_status, 'not_recorded') AS attendance,
+               COALESCE(a.attendance_status, 'pending') AS attendance,
                r.registration_date
         FROM registrations r
         JOIN events e ON e.id = r.event_id

@@ -92,7 +92,7 @@ CREATE TABLE attendees (
     address TEXT,
     gender VARCHAR(30),
     profile_picture_url TEXT,
-    attendance_status VARCHAR(20) DEFAULT 'not_recorded' CHECK (attendance_status IN ('present', 'absent', 'not_recorded')),
+    attendance_status VARCHAR(20) DEFAULT 'not_recorded' CHECK (attendance_status IN ('present', 'not_recorded')),
     attended_at TIMESTAMP WITH TIME ZONE
 );
 
