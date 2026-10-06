@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Plus, Edit, Trash2 } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Edit, Trash2 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
@@ -87,7 +87,6 @@ export class Organizer implements OnInit {
   readonly LogOut = LogOut;
   readonly ChevronDown = ChevronDown;
   readonly Search = Search;
-  readonly Plus = Plus;
   readonly Edit = Edit;
   readonly Trash2 = Trash2;
 
@@ -220,14 +219,7 @@ export class Organizer implements OnInit {
   }
 
   /**
-   * Open add organizer modal
-   */
-  openAddModal(): void {
-    this.showAddModal = true;
-  }
-
-  /**
-   * Close add organizer modal
+   * Close the Edit Organizer modal
    */
   closeAddModal(): void {
     this.showAddModal = false;
@@ -332,19 +324,18 @@ export class Organizer implements OnInit {
   }
 
   /**
-   * Create new organizer
+   * Save the Edit Organizer form (organizers register themselves; admins only edit them)
    */
-  createOrganizer(): void {
-    // Debug: Log form values before creating FormData
-    console.log('Form values:', this.newOrganizer);
-    
+  saveOrganizer(): void {
+    if (this.editingOrganizerId === null) return;
+
     // Validate only REQUIRED fields (contactNumber is optional)
-    if (!this.newOrganizer.employmentId || !this.newOrganizer.fullName || 
+    if (!this.newOrganizer.employmentId || !this.newOrganizer.fullName ||
         !this.newOrganizer.department || !this.newOrganizer.email) {
       this.dialog.error('Check your input', 'Please fill in all required fields');
       return;
     }
-    
+
     const formData = new FormData();
     formData.append('employment_id', this.newOrganizer.employmentId);
     formData.append('full_name', this.newOrganizer.fullName);
@@ -352,89 +343,21 @@ export class Organizer implements OnInit {
     formData.append('email', this.newOrganizer.email);
     formData.append('contact_number', this.newOrganizer.contactNumber);
 
-    // Saved now: closeAddModal() clears the form before the messages below are shown
+    // Saved now: closeAddModal() clears the form before the message below is shown
     const name = displayCase(this.newOrganizer.fullName.trim());
 
     this.isSaving = true;
-    if (this.editingOrganizerId !== null) {
-      this.http.put<any>(`http://localhost:8000/api/organizers/${this.editingOrganizerId}`, formData)
-        .pipe(finalize(() => (this.isSaving = false)))
-        .subscribe({
-          next: () => {
-            this.closeAddModal();
-            this.loadOrganizers();
-            this.dialog.success('Success!', `Your changes to ${name} have been saved.`);
-          },
-          error: (error) => {
-            console.error('Error updating organizer:', error);
-            this.dialog.error('Could Not Update Organizer', error.error?.detail || 'Please try again.');
-          }
-        });
-      return;
-    }
-    
-    // Debug: Log FormData contents
-    console.log('FormData contents:');
-    formData.forEach((value, key) => {
-      console.log(`${key}: ${value}`);
-    });
-    
-    console.log('📧 Sending request to create organizer...');
-    console.log('⏳ Waiting for backend to create account and send email...');
-
-    this.http.post<any>('http://localhost:8000/api/organizers', formData)
+    this.http.put<any>(`http://localhost:8000/api/organizers/${this.editingOrganizerId}`, formData)
       .pipe(finalize(() => (this.isSaving = false)))
       .subscribe({
-        next: (response) => {
-          console.log('✅ Backend response received:', response);
-          console.log('📧 Email sent status:', response.email_sent);
-          
-          // Close modal first for better UX
+        next: () => {
           this.closeAddModal();
-          
-          // Reload organizers list from database IMMEDIATELY
           this.loadOrganizers();
-          
-          // Show message based on SMTP confirmation
-          const credentials = response.credentials;
-          
-          if (response.email_sent === true) {
-            // SUCCESS PATH: Email was confirmed by SMTP
-            console.log('✅ SMTP confirmed email delivery');
-            this.dialog.success(
-              'Success!',
-              `${name} is now an organizer. We're sending their login details to ${credentials.email}.\n\n` +
-              `If they can't find the email, ask them to check their Spam folder.`
-            );
-          } else {
-            // WARNING PATH: Email failed but organizer was created
-            console.warn('⚠️ Organizer created but email failed');
-            this.dialog.warning(
-              'Created, but Email Is Off',
-              `${name}'s account is ready, but sending emails is turned off (EMAIL_ENABLED=false). ` +
-              'Please send them these login details yourself:\n\n' +
-              `Email: ${credentials.email}\n` +
-              `Password: ${credentials.password}`
-            );
-          }
+          this.dialog.success('Success!', `Your changes to ${name} have been saved.`);
         },
         error: (error) => {
-          console.error('❌ Error creating organizer:', error);
-          
-          let errorMessage = 'Error creating organizer. Please try again.';
-          
-          // Check for specific errors
-          if (error.error?.detail) {
-            errorMessage = error.error.detail;
-          } else if (error.status === 0) {
-            errorMessage = 'Cannot connect to server. Please check if backend is running on http://localhost:8000';
-          } else if (error.status === 400) {
-            errorMessage = 'Invalid data. Please check all fields.';
-          } else if (error.message.includes('duplicate key')) {
-            errorMessage = 'Employment ID already exists. Please use a different one.';
-          }
-          
-          this.dialog.error('Could Not Create Organizer', errorMessage);
+          console.error('Error updating organizer:', error);
+          this.dialog.error('Could Not Update Organizer', error.error?.detail || 'Please try again.');
         }
       });
   }

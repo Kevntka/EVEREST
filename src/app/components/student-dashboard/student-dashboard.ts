@@ -25,6 +25,7 @@ import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { coverInitial, coverColor } from '../../utils/cover-placeholder';
 import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 export interface Event {
@@ -83,6 +84,8 @@ export class StudentDashboard implements OnInit {
   readonly LogOut = LogOut;
   readonly Key = Key;
   readonly formatShortDate = formatShortDate;
+  readonly coverInitial = coverInitial;
+  readonly coverColor = coverColor;
 
   constructor(
     private router: Router, 

@@ -16,7 +16,6 @@ import {
   CalendarCheck,
   CalendarX2,
   Key,
-  ClipboardList,
   GraduationCap
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
@@ -95,7 +94,6 @@ export class OrganizerDashboard implements OnInit {
   readonly CalendarCheck = CalendarCheck;
   readonly CalendarX2 = CalendarX2;
   readonly Key = Key;
-  readonly ClipboardList = ClipboardList;
 
   constructor(
     private router: Router, 
@@ -183,13 +181,6 @@ export class OrganizerDashboard implements OnInit {
    */
   goToEvents(): void {
     this.router.navigate(['/organizer-events']);
-  }
-
-  /**
-   * Navigate to attendance page
-   */
-  goToAttendance(): void {
-    this.router.navigate(['/organizer-attendance']);
   }
 
 

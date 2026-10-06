@@ -402,8 +402,9 @@
   font-size: 13px;
   font-weight: 500;
   text-transform: capitalize;
-  /* Same width for Open / Closed / Cancelled */
-  min-width: 76px;
+  /* One fixed width for Open / Full / Upcoming / Closed (fits the longest, "Upcoming") */
+  width: 96px;
+  white-space: nowrap;
   box-sizing: border-box;
   text-align: center;
 }
@@ -440,7 +441,7 @@
 
 .events-table th:last-child,
 .events-table td:last-child {
-  min-width: 160px;
+  min-width: 220px;
 }
 
 .action-buttons {
@@ -449,7 +450,7 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-width: 130px;
+  min-width: 200px;
 }
 
 .action-btn {
@@ -546,6 +547,33 @@
 
 .delete-btn lucide-icon {
   color: #dc2626;
+}
+
+.attendance-btn:hover,
+.attendance-btn:focus-visible {
+  width: 118px;
+  min-width: 118px;
+}
+
+.attendance-btn:hover span,
+.attendance-btn:focus-visible span {
+  max-width: 80px;
+}
+
+.attendance-btn {
+  background-color: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  opacity: 0.75;
+}
+
+.attendance-btn:hover {
+  background-color: #bbf7d0;
+  opacity: 1;
+}
+
+.attendance-btn lucide-icon {
+  color: #16a34a;
 }
 
 /* Table Pagination */
@@ -774,6 +802,21 @@
   color: #fca5a5;
 }
 
+:host-context(body.dark-mode) .attendance-btn {
+  background-color: #14532d;
+  border: 1px solid #166534;
+  color: #86efac;
+}
+
+:host-context(body.dark-mode) .attendance-btn:hover {
+  background-color: #166534;
+  border-color: #15803d;
+}
+
+:host-context(body.dark-mode) .attendance-btn lucide-icon {
+  color: #86efac;
+}
+
 :host-context(body.dark-mode) .status-close {
   color: #d1d5db;
 }
@@ -919,4 +962,222 @@
 .form-hint {
   font-weight: 400;
   color: #9ca3af;
+}
+
+/* Attendance modal: the event's attendee list */
+.attendance-modal {
+  max-width: 1300px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Title sized like the Create Event modal's */
+.attendance-modal .modal-title {
+  font-size: 18px;
+  margin: 0 0 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attendance-event-name {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+/* Close button: colors of the admin View modals' Close, in the pagination row at the
+   pagination buttons' 32px height */
+.details-close {
+  height: 32px;
+  margin-left: 8px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 6px;
+  background-color: #dcdcdc;
+  color: #444444;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.details-close:hover {
+  background-color: #c9c9c9;
+}
+
+.attendance-scroll {
+  min-height: 0;
+  max-height: 60vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.attendance-table {
+  width: 100%;
+  min-width: 1248px; /* 6 x 208px: room for Present + hovered Not Recorded */
+  flex-shrink: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.attendance-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #ffffff;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+/* Equal-width columns */
+.attendance-table th {
+  width: calc(100% / 6);
+}
+
+.attendance-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.attendance-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.attendance-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.attendance-table td {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #495057;
+  overflow-wrap: anywhere;
+}
+
+.role-cell {
+  text-transform: capitalize;
+}
+
+.attendance-modal .table-pagination {
+  padding: 16px 0 0;
+}
+
+.attendance-table .action-btn:hover span,
+.attendance-table .action-btn:focus-visible span {
+  max-width: 96px;
+}
+
+.present-btn:hover,
+.present-btn:focus-visible {
+  width: 96px;
+  min-width: 96px;
+}
+
+.not-recorded-btn:hover,
+.not-recorded-btn:focus-visible {
+  width: 132px;
+  min-width: 132px;
+}
+
+/* Present / Not Recorded: faded until selected */
+.present-btn {
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  opacity: 0.6;
+}
+
+.not-recorded-btn {
+  background-color: #e5e7eb;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+  opacity: 0.6;
+}
+
+.present-btn:hover,
+.not-recorded-btn:hover,
+.action-btn.active {
+  opacity: 1;
+}
+
+.present-btn.active {
+  background-color: #10b981;
+  border-color: #059669;
+  color: #ffffff;
+}
+
+.not-recorded-btn.active {
+  background-color: #6b7280;
+  border-color: #4b5563;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .details-close {
+  background-color: #4b5563;
+  color: #f3f4f6;
+}
+
+:host-context(body.dark-mode) .details-close:hover {
+  background-color: #5b6573;
+}
+
+:host-context(body.dark-mode) .attendance-table th {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border-bottom-color: #404040;
+}
+
+:host-context(body.dark-mode) .attendance-table td {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .attendance-table tbody tr {
+  border-bottom-color: #404040;
+}
+
+:host-context(body.dark-mode) .attendance-table tbody tr:hover {
+  background-color: #3a3a3a;
+}
+
+:host-context(body.dark-mode) .attendance-modal .table-pagination {
+  border-top-color: #404040;
+}
+
+:host-context(body.dark-mode) .present-btn {
+  background-color: #064e3b;
+  border-color: #065f46;
+  color: #6ee7b7;
+}
+
+:host-context(body.dark-mode) .not-recorded-btn {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #d1d5db;
+}
+
+:host-context(body.dark-mode) .present-btn.active {
+  background-color: #10b981;
+  border-color: #34d399;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .not-recorded-btn.active {
+  background-color: #6b7280;
+  border-color: #9ca3af;
+  color: #ffffff;
+}
+
+.cover-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
 }

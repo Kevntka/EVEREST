@@ -76,11 +76,6 @@
 
           <app-select class="department-select" [options]="departmentOptions" [(ngModel)]="selectedDepartment"></app-select>
         </div>
-
-        <button class="add-btn" (click)="openAddModal()">
-          <lucide-icon [img]="Plus" [size]="18"></lucide-icon>
-          <span>Add Organizer</span>
-        </button>
       </div>
 
       <!-- Organizers Table -->
@@ -145,12 +140,12 @@
     </div>
   </div>
 
-  <!-- Add Organizer Modal -->
+  <!-- Edit Organizer Modal (organizers sign up themselves from the login page) -->
   <div class="modal-overlay" *ngIf="showAddModal">
     <div class="modal-content">
-      <h2 class="modal-title">{{ editingOrganizerId ? 'Edit Organizer' : 'Add Organizer' }}</h2>
+      <h2 class="modal-title">Edit Organizer</h2>
       
-      <form class="modal-form" (ngSubmit)="createOrganizer()" #organizerForm="ngForm">
+      <form class="modal-form" (ngSubmit)="saveOrganizer()" #organizerForm="ngForm">
         <!-- Full Name - Letters only, Auto uppercase -->
         <div class="form-field">
           <label class="form-label">Full Name <span style="color: #ff6b6b;">*</span></label>
@@ -235,7 +230,7 @@
 
         <div class="modal-buttons">
           <button type="button" class="btn-cancel" (click)="closeAddModal()">Cancel</button>
-          <button type="submit" class="btn-create" [disabled]="!organizerForm.form.valid || isSaving">{{ isSaving ? (editingOrganizerId ? 'Saving...' : 'Creating...') : (editingOrganizerId ? 'Save' : 'Create') }}</button>
+          <button type="submit" class="btn-create" [disabled]="!organizerForm.form.valid || isSaving">{{ isSaving ? 'Saving...' : 'Save' }}</button>
         </div>
       </form>
     </div>

@@ -35,10 +35,6 @@
           <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
           <span class="nav-text">Events</span>
         </button>
-        <button class="nav-item" (click)="goTo('/organizer-attendance')">
-          <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
-          <span class="nav-text">Attendance</span>
-        </button>
       } @else {
         <button class="nav-item active" (click)="goTo('/student-dashboard')">
           <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
@@ -97,7 +93,14 @@
       <div class="event-grid">
         <!-- Left Column - Image and About -->
         <div class="left-column">
-          <div class="event-image" [style.background-image]="event.coverPhoto ? 'url(http://localhost:8000' + event.coverPhoto + ')' : null"></div>
+          <!-- No cover photo: the title's first letter on a color picked from the title -->
+          <div class="event-image"
+               [style.background-image]="event.coverPhoto ? 'url(http://localhost:8000' + event.coverPhoto + ')' : null"
+               [style.background-color]="event.coverPhoto ? null : coverColor(event.title)">
+            @if (!event.coverPhoto) {
+              <span class="cover-initial">{{ coverInitial(event.title) }}</span>
+            }
+          </div>
 
           <div class="about-section">
             <h3 class="section-title">About this Event</h3>

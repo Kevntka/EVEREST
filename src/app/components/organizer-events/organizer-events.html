@@ -17,10 +17,6 @@
         <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
         <span class="nav-text">Event</span>
       </a>
-      <button class="nav-item" (click)="goToAttendance()">
-        <lucide-icon [img]="ClipboardCheck" class="nav-icon"></lucide-icon>
-        <span class="nav-text">Attendance</span>
-      </button>
     </nav>
   </aside>
 
@@ -106,6 +102,10 @@
               </td>
               <td>
                 <div class="action-buttons">
+                  <button class="action-btn attendance-btn" (click)="openAttendance(event)" title="Attendance">
+                    <lucide-icon [img]="ClipboardCheck" [size]="16"></lucide-icon>
+                    <span>Attendance</span>
+                  </button>
                   <button class="action-btn edit-btn" (click)="editEvent(event)" title="Edit">
                     <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
                     <span>Edit</span>
@@ -137,6 +137,66 @@
     </div>
   </div>
 
+  <!-- Attendance Modal: the event's attendee list; like the admin View modals it has a
+       Close button and closes on backdrop click (or Escape) -->
+  <div class="modal-overlay" *ngIf="attendanceEvent" (click)="closeAttendance()">
+    <div class="modal-content attendance-modal" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Attendance<span class="attendance-event-name"> · {{ attendanceEvent.title }}</span></h2>
+
+      <div class="attendance-scroll">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Email</th>
+              <th>Gender</th>
+              <th>Number</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let attendee of attendancePager.slice(attendees)">
+              <td>{{ attendee.name | displayCase }}</td>
+              <td class="role-cell">{{ attendee.type }}</td>
+              <td>{{ attendee.email }}</td>
+              <td>{{ attendee.gender | displayCase }}</td>
+              <td>{{ attendee.contactNumber }}</td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn present-btn" [class.active]="attendee.status === 'present'"
+                          (click)="setAttendance(attendee, 'present')" title="Present">
+                    <lucide-icon [img]="UserCheck" [size]="16"></lucide-icon>
+                    <span>Present</span>
+                  </button>
+                  <button class="action-btn not-recorded-btn" [class.active]="attendee.status === 'not_recorded'"
+                          (click)="setAttendance(attendee, 'not_recorded')" title="Not Recorded">
+                    <lucide-icon [img]="UserMinus" [size]="16"></lucide-icon>
+                    <span>Not Recorded</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-empty" *ngIf="attendees.length === 0">
+          {{ attendeesLoading ? 'Loading...' : 'No attendees to display' }}
+        </div>
+      </div>
+
+      <div class="table-pagination">
+        <button class="pagination-btn" [disabled]="attendancePager.isFirst(attendees)" (click)="attendancePager.prev(attendees)" aria-label="Previous page">
+          <span>&lt;</span>
+        </button>
+        <span class="pagination-info">{{ attendancePager.current(attendees) }} of {{ attendancePager.totalPages(attendees) }}</span>
+        <button class="pagination-btn" [disabled]="attendancePager.isLast(attendees)" (click)="attendancePager.next(attendees)" aria-label="Next page">
+          <span>&gt;</span>
+        </button>
+        <button type="button" class="details-close" (click)="closeAttendance()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Create Event Modal -->
   <div class="modal-overlay" *ngIf="showCreateModal">
     <div class="modal-content create-event-modal">
@@ -144,7 +204,7 @@
       
       <form class="modal-form" (ngSubmit)="createEvent()">
         <div class="form-field">
-          <label class="form-label">Event Title</label>
+          <label class="form-label">Event Title <span style="color: #ff6b6b;">*</span></label>
           <input 
             type="text" 
             class="form-input"
@@ -156,7 +216,7 @@
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Description</label>
+            <label class="form-label">Description <span style="color: #ff6b6b;">*</span></label>
             <textarea 
               class="form-textarea"
               [(ngModel)]="newEvent.description"
@@ -179,7 +239,7 @@
         <div class="form-row">
           <!-- Enrolling is allowed from the start to the end date; before it the event shows as Upcoming -->
           <div class="form-field">
-            <label class="form-label">Registration</label>
+            <label class="form-label">Registration <span style="color: #ff6b6b;">*</span></label>
             <div class="time-range">
               <input 
                 type="date" 
@@ -206,7 +266,7 @@
 
           <!-- Start and end share the one Time field; the event auto-closes after the end time -->
           <div class="form-field">
-            <label class="form-label">Time</label>
+            <label class="form-label">Time <span style="color: #ff6b6b;">*</span></label>
             <div class="time-range">
               <input 
                 type="time" 
@@ -231,7 +291,7 @@
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Start Date</label>
+            <label class="form-label">Start Date <span style="color: #ff6b6b;">*</span></label>
             <input 
               type="date" 
               class="form-input"
@@ -242,7 +302,7 @@
           </div>
 
           <div class="form-field">
-            <label class="form-label">Capacity</label>
+            <label class="form-label">Capacity <span style="color: #ff6b6b;">*</span></label>
             <input 
               type="number" 
               class="form-input"
@@ -256,7 +316,7 @@
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Department</label>
+            <label class="form-label">Department <span style="color: #ff6b6b;">*</span></label>
             <input
               type="text"
               class="form-input"
@@ -267,7 +327,7 @@
           </div>
 
           <div class="form-field">
-            <label class="form-label">Venue</label>
+            <label class="form-label">Venue <span style="color: #ff6b6b;">*</span></label>
             <input 
               type="text" 
               class="form-input"
@@ -283,14 +343,16 @@
           <input 
             type="file" 
             class="form-input"
-            accept="image/*"
+            accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
             (change)="onFileSelected($event)"
           />
+          <!-- Types match the backend check (security/validation.py: image_upload); big photos are shrunk under its 5 MB limit before upload -->
+          <span class="form-hint cover-hint">{{ coverProcessing ? 'Resizing photo...' : 'Accepted: JPG, PNG, GIF, or WebP · Max 25 MB' }}</span>
         </div>
 
         <div class="modal-buttons">
           <button type="button" class="btn-cancel" (click)="closeCreateModal()">Cancel</button>
-          <button type="submit" class="btn-create" [disabled]="isSaving">{{ isSaving ? (editingEventId ? 'Saving...' : 'Creating...') : (editingEventId ? 'Save' : 'Create') }}</button>
+          <button type="submit" class="btn-create" [disabled]="isSaving || coverProcessing">{{ isSaving ? (editingEventId ? 'Saving...' : 'Creating...') : (editingEventId ? 'Save' : 'Create') }}</button>
         </div>
       </form>
     </div>

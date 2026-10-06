@@ -454,8 +454,9 @@
   font-size: 13px;
   font-weight: 500;
   text-transform: capitalize;
-  /* Same width for Open / Closed / Cancelled */
-  min-width: 76px;
+  /* One fixed width for Open / Full / Upcoming / Closed (fits the longest, "Upcoming") */
+  width: 96px;
+  white-space: nowrap;
   box-sizing: border-box;
   text-align: center;
 }

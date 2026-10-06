@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SelectComponent, SelectOption } from '../select/select';
@@ -18,13 +18,16 @@ import {
   Plus,
   Edit,
   Trash2,
-  Key
+  Key,
+  UserCheck,
+  UserMinus
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { shrinkImage } from '../../utils/image-resize';
 import { ChangePasswordService } from '../../services/change-password.service';
 
 import { finalize } from 'rxjs';
@@ -48,6 +51,18 @@ export interface Event {
   coverPhoto?: string;
 }
 
+/** One registration in the Attendance modal (from GET /api/organizer/attendees). */
+export interface Attendee {
+  id: number;  // registration id
+  eventId: number;
+  name: string;
+  email: string;
+  type: 'student' | 'participant';
+  gender: string;
+  contactNumber: string;
+  status: 'present' | 'not_recorded' | 'pending';  // pending = not marked yet
+}
+
 @Component({
   selector: 'app-organizer-events',
   standalone: true,
@@ -57,9 +72,11 @@ export interface Event {
 })
 export class OrganizerEvents implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
+  readonly attendancePager = new Paginator(10);
   isSaving = false; // disables the submit button while the request runs
   private dialog = inject(DialogService);
   private session = inject(SessionService);
+  private cdr = inject(ChangeDetectorRef);
   readonly statusOptions: SelectOption[] = [{ value: '', label: 'Status' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'open', label: 'Open' }, { value: 'full', label: 'Full' }, { value: 'closed', label: 'Closed' }];
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadEvents());
@@ -108,6 +125,13 @@ export class OrganizerEvents implements OnInit {
   readonly Edit = Edit;
   readonly Trash2 = Trash2;
   readonly Key = Key;
+  readonly UserCheck = UserCheck;
+  readonly UserMinus = UserMinus;
+
+  /** Attendance modal: opened from an event's Action column */
+  attendanceEvent: Event | null = null;
+  attendees: Attendee[] = [];
+  attendeesLoading = false;
 
   constructor(
     private router: Router, 
@@ -181,8 +205,43 @@ export class OrganizerEvents implements OnInit {
     this.router.navigate(['/organizer-dashboard']);
   }
 
-  goToAttendance(): void {
-    this.router.navigate(['/organizer-attendance']);
+  /** Open the Attendance modal with everyone enrolled in this event. */
+  openAttendance(event: Event): void {
+    this.attendanceEvent = event;
+    this.attendees = [];
+    this.attendancePager.page = 1;
+    this.attendeesLoading = true;
+    // Everyone who enrolled in this event (the backend filters by event_id)
+    this.http.get<any>('http://localhost:8000/api/organizer/attendees', { params: { event_id: event.id } })
+      .pipe(finalize(() => (this.attendeesLoading = false)))
+      .subscribe({
+        next: (response) => {
+          this.attendees = response.attendees || [];
+        },
+        error: (error) => {
+          console.error('Error loading attendees:', error);
+          this.dialog.error('Something went wrong', error.error?.detail || 'Could not load the attendees.');
+        }
+      });
+  }
+
+  @HostListener('document:keydown.escape')
+  closeAttendance(): void {
+    this.attendanceEvent = null;
+  }
+
+  setAttendance(attendee: Attendee, status: Attendee['status']): void {
+    if (attendee.status === status) return;
+    this.http.put<any>(`http://localhost:8000/api/organizer/attendees/${attendee.id}/attendance`, { status })
+      .subscribe({
+        next: () => {
+          attendee.status = status;
+        },
+        error: (error) => {
+          console.error('Error updating attendance:', error);
+          this.dialog.error('Something went wrong', 'Failed to update attendance: ' + (error.error?.detail || 'Please try again.'));
+        }
+      });
   }
 
   openCreateModal(): void {
@@ -212,29 +271,80 @@ export class OrganizerEvents implements OnInit {
     };
   }
 
-  onFileSelected(event: any): void {
-    const file = event.target.files[0];
-    if (file) {
-      this.newEvent.coverPhoto = file;
+  /** Cover photo types, same as the backend's image check */
+  private readonly coverTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  /** Photos up to 25 MB (e.g. 4K) can be picked; they are shrunk below the backend's 5 MB */
+  private readonly coverPickMaxBytes = 25 * 1024 * 1024;
+  private readonly coverUploadMaxBytes = 5 * 1024 * 1024;
+  coverProcessing = false; // shrinking a large photo; Create waits for it
+
+  async onFileSelected(event: any): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    this.newEvent.coverPhoto = null;
+    if (!file) return;
+
+    const reject = (message: string) => {
+      this.dialog.error('Check your input', message);
+      input.value = '';
+    };
+    if (!this.coverTypes.includes(file.type)) {
+      return reject('Cover photo must be a JPG, PNG, GIF, or WebP image.');
+    }
+    if (file.size > this.coverPickMaxBytes) {
+      return reject('Cover photo must be 25 MB or smaller.');
+    }
+
+    this.coverProcessing = true;
+    this.cdr.markForCheck();
+    try {
+      const photo = await shrinkImage(file);
+      if (photo.size > this.coverUploadMaxBytes) {
+        // Only GIFs aren't shrunk, so only a large GIF ends up here
+        reject('This GIF is over 5 MB. Please use a smaller GIF or a JPG/PNG photo.');
+      } else {
+        this.newEvent.coverPhoto = photo;
+      }
+    } catch {
+      reject('Could not read that image. Please choose another photo.');
+    } finally {
+      this.coverProcessing = false;
+      this.cdr.markForCheck();
     }
   }
 
   createEvent(): void {
-    // "HH:MM" strings compare correctly as text
-    if (!this.newEvent.time || !this.newEvent.endTime) {
-      this.dialog.error('Check your input', 'Please enter the start and end time.');
+    // Name the empty required fields when there are one or two; otherwise a short general message
+    // (About this Event and Cover Photo are optional)
+    const { title, description, department, time, endTime, date, capacity, venue, registrationStart, registrationEnd } = this.newEvent;
+    const missing = [
+      !title.trim() && 'Event Title',
+      !description.trim() && 'Description',
+      !registrationStart && 'Registration start date',
+      !registrationEnd && 'Registration end date',
+      !time && 'Start time',
+      !endTime && 'End time',
+      !date && 'Start Date',
+      !capacity && 'Capacity',
+      !department.trim() && 'Department',
+      !venue.trim() && 'Venue',
+    ].filter(Boolean);
+    if (missing.length) {
+      this.dialog.error('Check your input', missing.length <= 2
+        ? `Please fill in the ${missing.join(' and ')}.`
+        : 'Please fill in all the empty required fields.');
       return;
     }
-    if (this.newEvent.endTime <= this.newEvent.time) {
+    // "HH:MM" strings compare correctly as text
+    if (endTime <= time) {
       this.dialog.error('Check your input', 'End time must be after the start time.');
       return;
     }
-    // "YYYY-MM-DD" strings compare correctly as text
-    const { registrationStart, registrationEnd, date } = this.newEvent;
-    if (!registrationStart || !registrationEnd) {
-      this.dialog.error('Check your input', 'Please enter the registration start and end dates.');
+    if (capacity < 1) {
+      this.dialog.error('Check your input', 'Capacity must be at least 1.');
       return;
     }
+    // "YYYY-MM-DD" strings compare correctly as text
     if (registrationEnd < registrationStart) {
       this.dialog.error('Check your input', "Registration end can't be before the registration start.");
       return;

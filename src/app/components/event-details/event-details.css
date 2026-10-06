@@ -291,6 +291,18 @@
   background-position: center;
   background-repeat: no-repeat;
   border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Placeholder cover: the title's first letter (event-image gets the color inline) */
+.cover-initial {
+  color: #ffffff;
+  font-size: clamp(64px, 12vw, 140px);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
 }
 
 .about-section {

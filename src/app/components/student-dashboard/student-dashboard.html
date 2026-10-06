@@ -83,11 +83,9 @@
 
           <div class="events-list">
             <div class="event-card" *ngFor="let event of filteredEvents">
-              <div class="event-image">
+              <div class="event-image" [style.background]="event.coverPhoto ? null : coverColor(event.title)">
                 <img *ngIf="event.coverPhoto" [src]="event.coverPhoto" [alt]="event.title" />
-                <div *ngIf="!event.coverPhoto" class="event-image-placeholder">
-                  No Image
-                </div>
+                <span *ngIf="!event.coverPhoto" class="event-image-placeholder">{{ coverInitial(event.title) }}</span>
               </div>
               <div class="event-info">
                 <h4 class="event-title">{{ event.title }}</h4>
@@ -131,11 +129,9 @@
 
           <div class="events-list">
             <div class="event-card" *ngFor="let event of filteredUpcomingEvents">
-              <div class="event-image">
+              <div class="event-image" [style.background]="event.coverPhoto ? null : coverColor(event.title)">
                 <img *ngIf="event.coverPhoto" [src]="event.coverPhoto" [alt]="event.title" />
-                <div *ngIf="!event.coverPhoto" class="event-image-placeholder">
-                  No Image
-                </div>
+                <span *ngIf="!event.coverPhoto" class="event-image-placeholder">{{ coverInitial(event.title) }}</span>
               </div>
               <div class="event-info">
                 <h4 class="event-title">{{ event.title }}</h4>

@@ -3,6 +3,7 @@ import { Login } from './components/login/login';
 import { Register } from './components/register/register';
 import { RegisterStudent } from './components/register-student/register-student';
 import { RegisterParticipant } from './components/register-participant/register-participant';
+import { RegisterOrganizer } from './components/register-organizer/register-organizer';
 import { ForgotPassword } from './components/forgot-password/forgot-password';
 import { CheckEmail } from './components/check-email/check-email';
 import { VerifyEmail } from './components/verify-email/verify-email';
@@ -11,7 +12,6 @@ import { Dashboard } from './components/dashboard/dashboard';
 import { Organizer } from './components/organizer/organizer';
 import { OrganizerDashboard } from './components/organizer-dashboard/organizer-dashboard';
 import { OrganizerEvents } from './components/organizer-events/organizer-events';
-import { OrganizerAttendance } from './components/organizer-attendance/organizer-attendance';
 import { Students } from './components/students/students';
 import { Participants } from './components/participants/participants';
 import { StudentDashboard } from './components/student-dashboard/student-dashboard';
@@ -26,6 +26,7 @@ export const routes: Routes = [
   { path: 'register', component: Register, canActivate: [loginGuard] },
   { path: 'register/student', component: RegisterStudent, canActivate: [loginGuard] },
   { path: 'register/participant', component: RegisterParticipant, canActivate: [loginGuard] },
+  { path: 'register/organizer', component: RegisterOrganizer, canActivate: [loginGuard] },
   { path: 'forgot-password', component: ForgotPassword, canActivate: [loginGuard] },
   { path: 'check-email', component: CheckEmail, canActivate: [loginGuard] },
   { path: 'verify-email', component: VerifyEmail, canActivate: [loginGuard] },
@@ -40,7 +41,6 @@ export const routes: Routes = [
   // Organizer routes (protected)
   { path: 'organizer-dashboard', component: OrganizerDashboard, canActivate: [roleGuard('organizer')] },
   { path: 'organizer-events', component: OrganizerEvents, canActivate: [roleGuard('organizer')] },
-  { path: 'organizer-attendance', component: OrganizerAttendance, canActivate: [roleGuard('organizer')] },
   
   // Student routes (protected)
   { path: 'student-dashboard', component: StudentDashboard, canActivate: [roleGuard(['student', 'participant'])] },

@@ -377,10 +377,11 @@
 }
 
 .event-image-placeholder {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  text-align: center;
-  padding: 10px;
+  color: #ffffff;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
 }
 
 .event-info {
@@ -421,8 +422,9 @@
   font-size: 13px;
   font-weight: 500;
   text-transform: capitalize;
-  /* Same width for Open / Closed / Cancelled */
-  min-width: 76px;
+  /* One fixed width for Open / Full / Upcoming / Closed (fits the longest, "Upcoming") */
+  width: 96px;
+  white-space: nowrap;
   box-sizing: border-box;
   text-align: center;
 }

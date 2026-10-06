@@ -26,6 +26,7 @@ import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { coverInitial, coverColor } from '../../utils/cover-placeholder';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 export interface EventDetail {
   id: number;
@@ -231,6 +232,8 @@ export class EventDetails implements OnInit {
   }
 
   readonly formatShortDate = formatShortDate;
+  readonly coverInitial = coverInitial;
+  readonly coverColor = coverColor;
 
   enrollInEvent(): void {
     if (!this.event || this.isEnrolled || this.enrollBusy || !this.registrationOpen || this.registrationOver) return;
