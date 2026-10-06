@@ -3,26 +3,16 @@ Database Configuration for EVEREST Event Registration System
 Using PostgreSQL with SQLAlchemy
 """
 
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+from security.settings import DATABASE_URL, SQL_ECHO
 
-# Database connection settings
-# Change 'postgres' password below to your actual PostgreSQL password
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:Kevin22melgar@localhost:5432/ers_db"  # Change 'admin' to your password
-)
-
-# Create SQLAlchemy engine
+# DATABASE_URL comes only from backend/.env (no password in the code)
 engine = create_engine(
     DATABASE_URL,
-    echo=True,  # Set to False in production
+    echo=SQL_ECHO,  # SQL_ECHO=true in .env prints every query (off: parameters include password hashes)
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20

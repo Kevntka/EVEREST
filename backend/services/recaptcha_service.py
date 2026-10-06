@@ -25,6 +25,11 @@ async def verify_recaptcha(token: str, remote_ip: str = None) -> dict:
         dict with success status and error codes
     """
     if not RECAPTCHA_SECRET_KEY or RECAPTCHA_SECRET_KEY == "your_secret_key_here":
+        from security.settings import HTTPS_ONLY
+        if HTTPS_ONLY:
+            # Production: never skip the check because a key is missing
+            print("ERROR: RECAPTCHA_SECRET_KEY is not set. Login is blocked until it is.")
+            return {"success": False, "error_codes": ["missing-input-secret"]}
         print("WARNING: reCAPTCHA not configured. Bypassing verification.")
         return {"success": True, "dev_mode": True}
     

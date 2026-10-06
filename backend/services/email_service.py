@@ -3,6 +3,7 @@ Email Service for sending notifications
 """
 
 import os
+from html import escape  # user-entered text (names) must not become HTML in the email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import aiosmtplib
@@ -141,13 +142,13 @@ EVEREST Admin Team
             <p>Event Registration System</p>
           </div>
           <div class="content">
-            <p>Hello <strong>{organizer_name}</strong>,</p>
+            <p>Hello <strong>{escape(organizer_name)}</strong>,</p>
             <p>Your organizer account has been created successfully.</p>
             
             <div class="credentials">
               <h3>Login Credentials:</h3>
-              <p><strong>Email:</strong> {to_email}</p>
-              <p><strong>Password:</strong> {password}</p>
+              <p><strong>Email:</strong> {escape(to_email)}</p>
+              <p><strong>Password:</strong> {escape(password)}</p>
             </div>
             
             <p>You can now access your organizer dashboard:</p>
@@ -232,11 +233,11 @@ EVEREST Admin Team
             <h1>Password Reset</h1>
           </div>
           <div class="content">
-            <p>Hello <strong>{user_name}</strong>,</p>
+            <p>Hello <strong>{escape(user_name)}</strong>,</p>
             <p>We received a request to reset your password for your EVEREST account.</p>
             
             <p>Click the button below to reset your password:</p>
-            <a href="{reset_link}" class="button">Reset Password</a>
+            <a href="{escape(reset_link)}" class="button">Reset Password</a>
             
             <div class="warning">
               <p><strong>Important:</strong></p>
@@ -248,7 +249,7 @@ EVEREST Admin Team
             
             <p style="font-size: 12px; color: #666;">
               If the button doesn't work, copy and paste this link into your browser:<br>
-              <a href="{reset_link}">{reset_link}</a>
+              <a href="{escape(reset_link)}">{escape(reset_link)}</a>
             </p>
           </div>
           <div class="footer">
@@ -308,14 +309,14 @@ EVEREST Admin Team
             <p>Event Registration System</p>
           </div>
           <div class="content">
-            <p>Hello <strong>{user_name}</strong>,</p>
+            <p>Hello <strong>{escape(user_name)}</strong>,</p>
             <p>Thanks for registering. Click the button below to verify your account:</p>
-            <a href="{verify_link}" class="button" style="color: white;">Verify Account</a>
+            <a href="{escape(verify_link)}" class="button" style="color: white;">Verify Account</a>
 
             <p><strong>Important:</strong> This link expires in 24 hours.</p>
             <p style="font-size: 12px; color: #666;">
               If the button doesn't work, copy and paste this link into your browser:<br>
-              <a href="{verify_link}">{verify_link}</a>
+              <a href="{escape(verify_link)}">{escape(verify_link)}</a>
             </p>
             <p style="font-size: 12px; color: #666;">If you did not create an EVEREST account, you can ignore this email.</p>
           </div>

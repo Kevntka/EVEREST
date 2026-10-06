@@ -4,21 +4,32 @@ from fastapi.staticfiles import StaticFiles
 # from api.routes import router as memory_router  # In-memory routes (not used anymore)
 from api.routes_db import router as db_router  # Database routes (ACTIVE)
 from pathlib import Path
+from security.settings import ALLOWED_ORIGINS, ENABLE_API_DOCS
+from security.csrf import CSRFMiddleware
+from security.headers import SecurityHeadersMiddleware
+from security.rate_limit import RateLimitMiddleware
 
 app = FastAPI(
     title="EVEREST Event Registration API",
     description="Backend API for event registration system",
-    version="2.0.0"
+    version="2.0.0",
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
 
-# CORS Configuration
+# Middleware runs from the last one added to the first. CORS is added last so it
+# wraps everything: even a 403 (CSRF) or 429 (rate limit) carries the CORS headers
+# the browser needs to show the error message.
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_headers=["Content-Type", "X-CSRF-Token"],
 )
 
 # Include database routes (PostgreSQL) - MUST BE BEFORE MOUNTS
@@ -42,4 +53,4 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

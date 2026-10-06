@@ -9,28 +9,26 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from database.config import get_db
 from models.user import User, UserRole, Department, Attendee, Event, Registration
-from models.auth import set_user_password, get_user_password
-from auth.jwt_handler import create_access_token, get_current_user, require_role, verify_password as verify_bcrypt_password
+from auth.jwt_handler import create_access_token, verify_password as verify_bcrypt_password
 from datetime import date, timedelta
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 import re
 from services.recaptcha_service import verify_recaptcha, get_error_message
-from auth.csrf_protection import generate_csrf_token, set_csrf_cookie, validate_csrf_form
+from security import validation as validate
+from security.access_control import current_user, require_roles, password_fingerprint
+from security.csrf import csrf_token_response
+from security.rate_limit import rate_limit, login_lockout
+from security.settings import FRONTEND_URL, HTTPS_ONLY
 
 router = APIRouter()
 
+# Who may call what (checked on the server from the login cookie, see security/access_control.py)
+admin_only = require_roles("admin")
+organizer_only = require_roles("organizer")
+attendee_only = require_roles("student", "participant")
 
 PASSWORD_SYMBOLS = "!@#$%&*_"
-
-
-def require_password(password: str) -> None:
-    """
-    Passwords only need to be non-empty. Strength is shown to the user as a
-    rating (frontend strength bar) but not required.
-    """
-    if not password or not password.strip():
-        raise HTTPException(status_code=400, detail="Password is required.")
 
 
 def generate_strong_password(length: int = 8) -> str:
@@ -48,63 +46,22 @@ def generate_strong_password(length: int = 8) -> str:
     return "".join(chars)
 
 
-def current_user_id(request: Request) -> int:
-    """
-    The logged-in user's id, read from the HTTP-only access_token cookie set by /login.
-    The frontend must send the request with withCredentials: true.
-    """
-    from auth.jwt_handler import decode_access_token
-
-    cookie = request.cookies.get("access_token")
-    if not cookie:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    payload = decode_access_token(cookie.removeprefix("Bearer "))
-    user_id = payload.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    return user_id
-
-
 @router.get("/test")
 def test_api():
     """Test endpoint to verify API is working"""
     return {"message": "EVEREST API with PostgreSQL is okay"}
 
 
-
-
 @router.get("/csrf-token")
-async def get_csrf_token(request: Request):
+def get_csrf_token(request: Request):
     """
-    Get or generate CSRF token
-    This endpoint is called when the app starts to get a CSRF token
+    CSRF token for the X-CSRF-Token header (fetched by the Angular csrf interceptor
+    before its first POST/PUT/DELETE). Also sets the matching csrf_token cookie.
     """
-    from auth.csrf_protection import get_csrf_token_from_cookie
-    
-    # Check if token already exists in cookie
-    existing_token = get_csrf_token_from_cookie(request)
-    
-    if existing_token:
-        # Return existing token
-        return JSONResponse(
-            status_code=200,
-            content={"csrf_token": existing_token}
-        )
-    
-    # Generate new token
-    csrf_token = generate_csrf_token()
-    
-    response = JSONResponse(
-        status_code=200,
-        content={"csrf_token": csrf_token}
-    )
-    
-    # Set CSRF cookie
-    set_csrf_cookie(response, csrf_token)
-    
-    return response
+    return csrf_token_response(request)
 
-@router.post("/login")
+
+@router.post("/login", dependencies=[Depends(rate_limit("login", 20, 60))])
 async def login(
     request: Request,
     email: str = Form(...),
@@ -117,16 +74,19 @@ async def login(
     Token stored in cookie (not returned in response body)
     """
     try:
+        email = validate.email(email)
+        password = validate.password(password)
+        # 5 wrong passwords in 15 minutes lock this email for 15 minutes
+        login_lockout.check(email)
+
         # Verify reCAPTCHA first
         client_ip = request.client.host if request.client else None
         recaptcha_result = await verify_recaptcha(recaptcha_token, client_ip)
-        
+
         if not recaptcha_result.get("success"):
             error_codes = recaptcha_result.get("error_codes", [])
             error_msg = get_error_message(error_codes)
             raise HTTPException(status_code=400, detail=error_msg)
-        
-        email = email.strip().lower()
 
         # Find user by email
         user = db.query(User).filter(User.email == email).first()
@@ -143,24 +103,26 @@ async def login(
                     status_code=404,
                     detail="This account is not registered yet. Please create an account first."
                 )
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        # Verify password - check database password field
-        if not user.password:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        # Verify password against database hash
-        if not verify_bcrypt_password(password, user.password):
+            login_lockout.failed(email)
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        
-        # Create JWT token
+        # Verify password against the bcrypt hash in the database
+        if not user.password or not verify_bcrypt_password(password, user.password):
+            login_lockout.failed(email)
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        if user.is_active is False:
+            raise HTTPException(status_code=403, detail="This account has been deactivated.")
+        login_lockout.succeeded(email)
+
+        # Create JWT token. "pwd" is a fingerprint of the password hash: changing the
+        # password makes every older token invalid (security/access_control.py).
         token_data = {
             "sub": email,  # Subject (user identifier)
             "user_id": user.id,
             "email": email,
             "name": user.full_name,
-            "role": user.role
+            "role": user.role,
+            "pwd": password_fingerprint(user.password)
         }
         
         access_token = create_access_token(
@@ -185,12 +147,12 @@ async def login(
             key="access_token",
             value=f"Bearer {access_token}",
             httponly=True,  # Cannot be accessed by JavaScript
-            secure=False,  # Set to True in production with HTTPS
-            samesite="lax",  # CSRF protection
+            secure=HTTPS_ONLY,  # HTTPS_ONLY=true in .env: only sent over HTTPS
+            samesite="lax",  # not sent on cross-site POSTs (CSRF defense, with security/csrf.py)
             max_age=86400,  # 24 hours in seconds
             path="/"
         )
-        
+
         return response
     except HTTPException:
         raise
@@ -198,7 +160,7 @@ async def login(
         print(f"❌ Login error: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 @router.post("/logout")
@@ -213,13 +175,10 @@ async def logout():
             "message": "Logged out successfully"
         }
     )
-    
-    # Clear the cookie
-    response.delete_cookie(
-        key="access_token",
-        path="/"
-    )
-    
+
+    # Clear the cookie (same attributes as when it was set)
+    response.delete_cookie(key="access_token", path="/", httponly=True, secure=HTTPS_ONLY, samesite="lax")
+
     return response
 
 
@@ -246,7 +205,7 @@ def _new_token() -> str:
 
 
 def _verification_link(token: str) -> str:
-    return f"http://localhost:4200/verify-email?token={token}"
+    return f"{FRONTEND_URL}/verify-email?token={token}"
 
 
 def _unverified_response(email: str, message: str, status_code: int = 403) -> JSONResponse:
@@ -269,10 +228,11 @@ async def _start_pending_registration(
     from auth.jwt_handler import hash_password
     from services.email_service import send_verification_link_email
 
-    email = email.strip().lower()
-    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
-        raise HTTPException(status_code=400, detail="Please provide a valid email address")
-    require_password(password)
+    email = validate.email(email)
+    validate.password(password)
+    full_name = validate.text(full_name, "Full name", 150)
+    department = validate.text(department, "Department", 150, required=role == "student")
+    contact_number = validate.contact_number(contact_number, required=role == "participant")
 
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -306,16 +266,16 @@ async def _start_pending_registration(
         )
     """), {
         "email": email,
-        "full_name": full_name.strip(),
+        "full_name": full_name,
         "role": role,
         "password_hash": hash_password(password),
-        "department": (department or "").strip() or None,
-        "contact_number": (contact_number or "").strip() or None,
+        "department": department,
+        "contact_number": contact_number,
         "code_hash": _hash_code(token),
     })
     db.commit()
 
-    email_sent = await send_verification_link_email(email, full_name.strip(), _verification_link(token))
+    email_sent = await send_verification_link_email(email, full_name, _verification_link(token))
     return JSONResponse(
         status_code=200,
         content={
@@ -323,12 +283,16 @@ async def _start_pending_registration(
             "message": "Open the link we sent to your email to finish creating your account",
             "verification_required": True,
             "email_sent": email_sent,
-            "user": {"full_name": full_name.strip(), "email": email}
+            "user": {"full_name": full_name, "email": email}
         }
     )
 
 
-@router.post("/register/student")
+# Sign-ups per IP address: 20 every 10 minutes
+register_limit = rate_limit("register", 20, 600)
+
+
+@router.post("/register/student", dependencies=[Depends(register_limit)])
 async def register_student(
     full_name: str = Form(...),
     role: str = Form(...),
@@ -345,7 +309,7 @@ async def register_student(
     )
 
 
-@router.post("/register/participant")
+@router.post("/register/participant", dependencies=[Depends(register_limit)])
 async def register_participant(
     full_name: str = Form(...),
     role: str = Form(...),
@@ -363,7 +327,7 @@ async def register_participant(
     )
 
 
-@router.post("/organizers")
+@router.post("/organizers", dependencies=[Depends(admin_only)])
 async def create_organizer(
     background_tasks: BackgroundTasks,
     employment_id: str = Form(...),
@@ -378,16 +342,21 @@ async def create_organizer(
     after the response (SMTP takes ~10 s), so the admin doesn't wait for it.
     """
     try:
+        email = validate.email(email)
+        employment_id = validate.text(employment_id, "Employment ID", 50)
+        full_name = validate.text(full_name, "Full name", 150)
+        department = validate.text(department, "Department", 150)
+        contact_number = validate.contact_number(contact_number)
         print(f"\n🔧 Creating organizer: {full_name} ({email})")
-        
+
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered")
-        
+        if db.query(UserRole).filter(UserRole.employment_id == employment_id).first():
+            raise HTTPException(status_code=400, detail="Employment ID already exists")
+
         # Generate random password
-        import random
-        import string
         random_password = generate_strong_password(8)
         
         # Hash password
@@ -483,13 +452,10 @@ async def create_organizer(
         # Rollback database changes
         db.rollback()
         
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
-@router.get("/organizers")
+@router.get("/organizers", dependencies=[Depends(admin_only)])
 def get_organizers(db: Session = Depends(get_db)):
     """
     Get all organizers
@@ -534,12 +500,11 @@ def get_organizers(db: Session = Depends(get_db)):
         return {
             "success": True,
             "count": 0,
-            "organizers": [],
-            "error": str(e)
+            "organizers": []
         }
 
 
-@router.delete("/organizers/{organizer_id}")
+@router.delete("/organizers/{organizer_id}", dependencies=[Depends(admin_only)])
 def delete_organizer(organizer_id: int, db: Session = Depends(get_db)):
     """
     Delete organizer
@@ -572,7 +537,7 @@ def delete_organizer(organizer_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/students")
+@router.get("/students", dependencies=[Depends(admin_only)])
 def get_students(db: Session = Depends(get_db)):
     """
     Get all students
@@ -606,7 +571,7 @@ def get_students(db: Session = Depends(get_db)):
     }
 
 
-@router.delete("/students/{student_id}")
+@router.delete("/students/{student_id}", dependencies=[Depends(admin_only)])
 def delete_student(student_id: int, db: Session = Depends(get_db)):
     """
     Delete student
@@ -633,7 +598,7 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/participants")
+@router.get("/participants", dependencies=[Depends(admin_only)])
 def get_participants(db: Session = Depends(get_db)):
     """
     Get all participants
@@ -664,7 +629,7 @@ def get_participants(db: Session = Depends(get_db)):
     }
 
 
-@router.delete("/participants/{participant_id}")
+@router.delete("/participants/{participant_id}", dependencies=[Depends(admin_only)])
 def delete_participant(participant_id: int, db: Session = Depends(get_db)):
     """
     Delete participant
@@ -691,13 +656,17 @@ def delete_participant(participant_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/forgot-password")
+# Each one sends an email: 5 per IP every 15 minutes
+reset_email_limit = rate_limit("reset-email", 5, 900)
+
+
+@router.post("/forgot-password", dependencies=[Depends(reset_email_limit)])
 async def forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
     """
     Request password reset - sends email with reset link
     """
     # Users are stored with lowercased emails (see login/register)
-    email = email.strip().lower()
+    email = validate.email(email)
 
     # Check if user exists
     user = db.query(User).filter(User.email == email).first()
@@ -723,13 +692,15 @@ async def _send_reset_link(db: Session, user: User) -> JSONResponse:
     expires_at = datetime.now() + timedelta(hours=1)
 
     try:
+        # Only the SHA-256 of the token is stored: someone who can read the database
+        # still can't use a reset link (same as the email verification tokens)
         db.execute(text("""
             INSERT INTO password_reset_tokens (user_id, token, expires_at)
             VALUES (:user_id, :token, :expires_at)
-        """), {"user_id": user.id, "token": token, "expires_at": expires_at})
+        """), {"user_id": user.id, "token": _hash_code(token), "expires_at": expires_at})
         db.commit()
 
-        reset_link = f"http://localhost:4200/reset-password?token={token}"
+        reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
 
         from services.email_service import send_password_reset_email
         email_sent = await send_password_reset_email(
@@ -761,7 +732,7 @@ async def _send_reset_link(db: Session, user: User) -> JSONResponse:
         raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=[Depends(rate_limit("reset-password", 10, 900))])
 async def reset_password(
     token: str = Form(...),
     new_password: str = Form(...),
@@ -772,20 +743,21 @@ async def reset_password(
     """
     from sqlalchemy import text
     from datetime import datetime
-    
-    # Find valid token
-    query = text("""
-        SELECT user_id, expires_at, used
-        FROM password_reset_tokens
-        WHERE token = :token
-    """)
-    
-    result = db.execute(query, {"token": token}).first()
-    
+    from auth.jwt_handler import hash_password
+
+    token_hash = _hash_code(validate.token(token))
+    validate.password(new_password)
+
+    result = db.execute(text("""
+        SELECT t.user_id, t.expires_at, t.used, u.email
+        FROM password_reset_tokens t JOIN users u ON u.id = t.user_id
+        WHERE t.token = :token
+    """), {"token": token_hash}).first()
+
     if not result:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     
-    user_id, expires_at, used = result
+    user_id, expires_at, used, email = result
     
     # Check if token is already used
     if used:
@@ -796,30 +768,19 @@ async def reset_password(
     now = datetime.now(expires_at.tzinfo) if expires_at.tzinfo else datetime.now()
     if now > expires_at:
         raise HTTPException(status_code=400, detail="Reset token has expired")
-    
-    # Hash new password
-    from auth.jwt_handler import hash_password
-    require_password(new_password)
-    hashed_password = hash_password(new_password)
-    
-    # Update user password
-    update_query = text("""
-        UPDATE users
-        SET password = :password, updated_at = CURRENT_TIMESTAMP
-        WHERE id = :user_id
-    """)
-    
-    # Mark token as used
-    mark_used_query = text("""
-        UPDATE password_reset_tokens
-        SET used = TRUE
-        WHERE token = :token
-    """)
-    
+
     try:
-        db.execute(update_query, {"password": hashed_password, "user_id": user_id})
-        db.execute(mark_used_query, {"token": token})
+        # The new password changes the hash fingerprint in login tokens, so every
+        # session logged in with the old password is signed out
+        db.execute(text("""
+            UPDATE users SET password = :password, updated_at = CURRENT_TIMESTAMP WHERE id = :user_id
+        """), {"password": hash_password(new_password), "user_id": user_id})
+        # This link and any other unused links for the account stop working
+        db.execute(text("""
+            UPDATE password_reset_tokens SET used = TRUE WHERE user_id = :user_id AND used IS NOT TRUE
+        """), {"user_id": user_id})
         db.commit()
+        login_lockout.succeeded(email)
         
         return JSONResponse(
             status_code=200,
@@ -840,7 +801,6 @@ async def reset_password(
 
 from fastapi import File, UploadFile
 
-MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _close_finished_events(db: Session) -> None:
@@ -865,6 +825,9 @@ def _close_finished_events(db: Session) -> None:
 def _validate_event_times(event_date: str, event_time: str, event_end_time: Optional[str]):
     """Check the date/start time, and that the end time (if given) is after the start."""
     from datetime import datetime
+    for value in (event_time, event_end_time):
+        if value and not re.fullmatch(r"\d{2}:\d{2}(:\d{2})?", value):
+            raise HTTPException(status_code=400, detail="Invalid date or time")
     try:
         start = datetime.strptime(f"{event_date} {event_time[:5]}", "%Y-%m-%d %H:%M")
         end = datetime.strptime(f"{event_date} {event_end_time[:5]}", "%Y-%m-%d %H:%M") if event_end_time else None
@@ -903,6 +866,26 @@ def _time_str(value) -> Optional[str]:
     return str(value) if value else None
 
 
+def _validate_event_text(event_name, event_description, venue, capacity, department, about_event) -> dict:
+    """Event form text: required fields, column-sized limits, capacity range."""
+    return {
+        "event_name": validate.text(event_name, "Event name", 200),
+        "event_description": validate.text(event_description, "Description", 5000, multiline=True),
+        "venue": validate.text(venue, "Venue", 200),
+        "capacity": validate.whole_number(capacity, "Capacity", 1, 100000),
+        "department": validate.text(department, "Department", 150, required=False),
+        "about_event": validate.text(about_event, "About the event", 10000, required=False, multiline=True),
+    }
+
+
+def _organizer_owns_event(db: Session, event_id: int, organizer_user_id: int) -> bool:
+    from sqlalchemy import text
+    return db.execute(text("""
+        SELECT 1 FROM events e JOIN user_roles ur ON ur.id = e.user_role_id
+        WHERE e.id = :event_id AND ur.user_id = :user_id
+    """), {"event_id": event_id, "user_id": organizer_user_id}).first() is not None
+
+
 @router.post("/events")
 async def create_event(
     event_name: str = Form(...),
@@ -911,33 +894,34 @@ async def create_event(
     event_time: str = Form(...),
     venue: str = Form(...),
     capacity: int = Form(...),
-    organizer_id: int = Form(...),
+    organizer_id: Optional[int] = Form(None),  # ignored: the organizer is the logged-in user
     department: str = Form(None),
     about_event: str = Form(None),
     event_end_time: str = Form(None),
     registration_start: str = Form(None),
     registration_end: str = Form(None),
     cover_photo: UploadFile = File(None),
+    organizer: User = Depends(organizer_only),
     db: Session = Depends(get_db)
 ):
     """
-    Create a new event (organizer only)
+    Create a new event (organizer only). The event belongs to the organizer in the
+    login cookie, never to an id sent by the browser.
     """
+    fields = _validate_event_text(event_name, event_description, venue, capacity, department, about_event)
+    event_name, event_description, venue = fields["event_name"], fields["event_description"], fields["venue"]
+    department, about_event = fields["department"], fields["about_event"]
+
     # Cover photo bytes are stored in the database (events.cover_photo_data)
     # and served by GET /api/events/{id}/cover
     cover_photo_data = None
     cover_photo_type = None
     if cover_photo and cover_photo.filename:
-        if not (cover_photo.content_type or "").startswith("image/"):
-            raise HTTPException(status_code=400, detail="Cover photo must be an image")
-        cover_photo_data = await cover_photo.read()
-        if len(cover_photo_data) > MAX_COVER_PHOTO_BYTES:
-            raise HTTPException(status_code=400, detail="Cover photo must be 5 MB or smaller")
-        cover_photo_type = cover_photo.content_type
+        cover_photo_data, cover_photo_type = await validate.image_upload(cover_photo, "Cover photo")
 
     # Link event to the organizer's user_roles row (events.user_role_id FK)
     organizer_role = db.query(UserRole).filter(
-        UserRole.user_id == organizer_id,
+        UserRole.user_id == organizer.id,
         UserRole.role_type == 'organizer'
     ).first()
     if not organizer_role:
@@ -1016,10 +1000,10 @@ async def create_event(
     except Exception as e:
         db.rollback()
         print(f"Error creating event: {e}")
-        raise HTTPException(status_code=500, detail=f"Error creating event: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating event. Please try again.")
 
 
-@router.get("/events")
+@router.get("/events", dependencies=[Depends(current_user)])
 def get_events(db: Session = Depends(get_db)):
     """
     Get all events
@@ -1095,7 +1079,7 @@ def get_event_cover(event_id: int, db: Session = Depends(get_db)):
     return Response(content=bytes(row[0]), media_type=row[1] or "application/octet-stream")
 
 
-@router.get("/events/{event_id}")
+@router.get("/events/{event_id}", dependencies=[Depends(current_user)])
 def get_event(event_id: int, db: Session = Depends(get_db)):
     """
     Get a specific event by ID
@@ -1147,15 +1131,17 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         print(f"Error getting event: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 @router.get("/organizer/stats")
-def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
+def get_organizer_stats(organizer: User = Depends(organizer_only), db: Session = Depends(get_db)):
     """
-    Dashboard stats for one organizer (organizer_id is the organizer's users.id)
+    Dashboard stats for the logged-in organizer (from the login cookie; an
+    organizer_id query parameter is ignored, so one organizer can't read another's)
     """
     from sqlalchemy import text
+    organizer_id = organizer.id
     _close_finished_events(db)
 
     # events.user_role_id references the organizer's user_roles row
@@ -1219,12 +1205,12 @@ def get_organizer_stats(organizer_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/organizer/attendees")
-def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
+def get_organizer_attendees(organizer: User = Depends(organizer_only), db: Session = Depends(get_db)):
     """
-    Everyone enrolled in this organizer's events, one row per registration
-    (organizer_id is the organizer's users.id)
+    Everyone enrolled in the logged-in organizer's events, one row per registration
     """
     from sqlalchemy import text
+    organizer_id = organizer.id
 
     query = text("""
         SELECT r.id, u.full_name, u.email, u.role, e.event_name,
@@ -1266,26 +1252,31 @@ def get_organizer_attendees(organizer_id: int, db: Session = Depends(get_db)):
 
 
 class AttendanceUpdate(BaseModel):
-    status: str
+    status: Literal["present", "not_recorded"]
 
 
 @router.put("/organizer/attendees/{registration_id}/attendance")
-def update_attendance(registration_id: int, body: AttendanceUpdate, db: Session = Depends(get_db)):
+def update_attendance(
+    registration_id: int,
+    body: AttendanceUpdate,
+    organizer: User = Depends(organizer_only),
+    db: Session = Depends(get_db)
+):
     """
-    Mark a registration as present or not recorded (the student sees it on My Events)
+    Mark a registration as present or not recorded (the student sees it on My Events).
+    Only for registrations in the logged-in organizer's own events.
     """
     from sqlalchemy import text
-
-    if body.status not in ("present", "not_recorded"):
-        raise HTTPException(status_code=400, detail="Status must be 'present' or 'not_recorded'")
 
     registration = db.execute(text("""
         SELECT r.id, u.full_name, u.email, ur.contact_number, ur.department_id
         FROM registrations r
         JOIN users u ON u.id = r.user_id
+        JOIN events e ON e.id = r.event_id
+        JOIN user_roles org ON org.id = e.user_role_id
         LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.role_type = u.role
-        WHERE r.id = :registration_id
-    """), {"registration_id": registration_id}).first()
+        WHERE r.id = :registration_id AND org.user_id = :organizer_id
+    """), {"registration_id": registration_id, "organizer_id": organizer.id}).first()
 
     if not registration:
         raise HTTPException(status_code=404, detail="Registration not found")
@@ -1326,11 +1317,18 @@ def update_attendance(registration_id: int, body: AttendanceUpdate, db: Session 
 
 
 @router.delete("/events/{event_id}")
-def delete_event(event_id: int, db: Session = Depends(get_db)):
+def delete_event(
+    event_id: int,
+    user: User = Depends(require_roles("admin", "organizer")),
+    db: Session = Depends(get_db)
+):
     """
-    Delete an event by ID
+    Delete an event by ID. Admins can delete any event; organizers only their own.
     """
     from sqlalchemy import text
+
+    if user.role == "organizer" and not _organizer_owns_event(db, event_id, user.id):
+        raise HTTPException(status_code=403, detail="You can only delete your own events.")
     
     query = text("DELETE FROM events WHERE id = :event_id")
 
@@ -1350,11 +1348,11 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         print(f"Error deleting event: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 @router.get("/events/{event_id}/enrollment")
-def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db)):
+def get_enrollment(event_id: int, user: User = Depends(attendee_only), db: Session = Depends(get_db)):
     """
     Whether the logged-in student/participant is enrolled in this event
     """
@@ -1365,7 +1363,7 @@ def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db
         FROM registrations r
         LEFT JOIN attendees a ON a.registration_id = r.id
         WHERE r.event_id = :event_id AND r.user_id = :user_id
-    """), {"event_id": event_id, "user_id": current_user_id(request)}).first()
+    """), {"event_id": event_id, "user_id": user.id}).first()
     return {
         "success": True,
         "enrolled": row is not None,
@@ -1375,7 +1373,7 @@ def get_enrollment(event_id: int, request: Request, db: Session = Depends(get_db
 
 
 @router.delete("/events/{event_id}/enroll")
-def cancel_enrollment(event_id: int, request: Request, db: Session = Depends(get_db)):
+def cancel_enrollment(event_id: int, user: User = Depends(attendee_only), db: Session = Depends(get_db)):
     """
     Cancel the logged-in user's enrollment. Only allowed during the registration period
     (registration start, or the event date, through registration end). The registration row
@@ -1391,7 +1389,7 @@ def cancel_enrollment(event_id: int, request: Request, db: Session = Depends(get
         JOIN events e ON e.id = r.event_id
         LEFT JOIN attendees a ON a.registration_id = r.id
         WHERE r.event_id = :event_id AND r.user_id = :user_id
-    """), {"event_id": event_id, "user_id": current_user_id(request)}).first()
+    """), {"event_id": event_id, "user_id": user.id}).first()
 
     if not row:
         raise HTTPException(status_code=404, detail="You are not enrolled in this event")
@@ -1411,14 +1409,13 @@ def cancel_enrollment(event_id: int, request: Request, db: Session = Depends(get
 @router.post("/events/{event_id}/enroll")
 async def enroll_event(
     event_id: int,
-    request: Request,
+    user: User = Depends(attendee_only),
     db: Session = Depends(get_db)
 ):
     """
     Enroll the logged-in student/participant (identified by the login cookie) in an event
     """
     from sqlalchemy import text
-    user_id = current_user_id(request)
     _close_finished_events(db)
     
     # Check if event exists
@@ -1451,12 +1448,6 @@ async def enroll_event(
     if event_result[1] is not None and event_result[3] >= event_result[1]:
         raise HTTPException(status_code=400, detail="This event is already full")
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    if user.role not in ('student', 'participant'):
-        raise HTTPException(status_code=403, detail="Only students and participants can enroll in events")
-
     # Check if already enrolled
     existing = db.query(Registration).filter(
         Registration.event_id == event_id,
@@ -1487,7 +1478,7 @@ async def enroll_event(
     except Exception as e:
         db.rollback()
         print(f"Error enrolling: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
 
 
@@ -1500,7 +1491,7 @@ def get_or_create_department(db: Session, name: str) -> Department:
     return dept
 
 
-@router.put("/organizers/{organizer_id}")
+@router.put("/organizers/{organizer_id}", dependencies=[Depends(admin_only)])
 def update_organizer(
     organizer_id: int,
     employment_id: str = Form(...),
@@ -1517,13 +1508,14 @@ def update_organizer(
     if not user:
         raise HTTPException(status_code=404, detail="Organizer not found")
 
-    email = email.strip().lower()
-    if not re.fullmatch(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", email):
-        raise HTTPException(status_code=400, detail="Please provide a valid email address")
+    email = validate.email(email)
+    full_name = validate.text(full_name, "Full name", 150)
+    department = validate.text(department, "Department", 150)
+    contact_number = validate.contact_number(contact_number)
     if db.query(User).filter(User.email == email, User.id != organizer_id).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    employment_id = employment_id.strip()
+    employment_id = validate.text(employment_id, "Employment ID", 50)
     duplicate_id = db.query(UserRole).filter(
         UserRole.employment_id == employment_id, UserRole.user_id != organizer_id
     ).first()
@@ -1537,25 +1529,22 @@ def update_organizer(
         user_role = UserRole(user_id=organizer_id, role_type='organizer')
         db.add(user_role)
 
-    user.full_name = full_name.strip()
+    user.full_name = full_name
     user.email = email
     user_role.employment_id = employment_id
-    user_role.department_id = get_or_create_department(db, department.strip()).id
-    user_role.contact_number = (contact_number or "").strip() or None
+    user_role.department_id = get_or_create_department(db, department).id
+    user_role.contact_number = contact_number
     db.commit()
 
     return {"success": True, "message": "Organizer updated successfully"}
 
 
-@router.post("/change-password")
-async def request_change_password_link(request: Request, db: Session = Depends(get_db)):
+@router.post("/change-password", dependencies=[Depends(reset_email_limit)])
+async def request_change_password_link(user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
     Change Password for a logged-in user: email a Set New Password link to the
     email of the account in the login cookie (never an address sent by the client)
     """
-    user = db.query(User).filter(User.id == current_user_id(request)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
     return await _send_reset_link(db, user)
 
 
@@ -1601,13 +1590,10 @@ def _role_row(db: Session, user: User):
 
 
 @router.get("/student/profile")
-def get_student_profile(request: Request, db: Session = Depends(get_db)):
+def get_student_profile(user: User = Depends(attendee_only), db: Session = Depends(get_db)):
     """
     The logged-in student's (or participant's) profile
     """
-    user = db.query(User).filter(User.id == current_user_id(request)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
     user_role, dept = _role_row(db, user)
     return {"success": True, "profile": _profile_response(user, user_role, dept)}
 
@@ -1625,16 +1611,19 @@ class ProfileUpdate(BaseModel):
 
 
 @router.put("/student/profile")
-def update_student_profile(body: ProfileUpdate, request: Request, db: Session = Depends(get_db)):
+def update_student_profile(body: ProfileUpdate, user: User = Depends(attendee_only), db: Session = Depends(get_db)):
     """
     Update the logged-in student's (or participant's) profile.
     Email and role can't be changed here.
     """
-    user = db.query(User).filter(User.id == current_user_id(request)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    if not body.fullName.strip():
-        raise HTTPException(status_code=400, detail="Full name is required")
+    # Length limits match the user_roles columns
+    validate.text(body.fullName, "Full name", 150)
+    for value, label, limit in ((body.collegeDepartment, "College / Department", 150),
+                                (body.program, "Program", 150), (body.gender, "Gender", 30),
+                                (body.address, "Address", 255), (body.yearLevel, "Year level", 20),
+                                (body.srCode, "SR-Code", 50), (body.contactNumber, "Contact number", 30),
+                                (body.birthday, "Birthday", 10)):
+        validate.text(value, label, limit, required=False)
 
     user_role, _ = _role_row(db, user)
     if not user_role:
@@ -1700,31 +1689,25 @@ def update_student_profile(body: ProfileUpdate, request: Request, db: Session = 
 
 
 @router.post("/student/profile/avatar")
-async def upload_profile_avatar(request: Request, avatar: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_profile_avatar(avatar: UploadFile = File(...), user: User = Depends(attendee_only),
+                                db: Session = Depends(get_db)):
     """
     Save the logged-in user's profile picture (bytes stored in user_roles.avatar_data)
     """
-    user = db.query(User).filter(User.id == current_user_id(request)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-    if not (avatar.content_type or "").startswith("image/"):
-        raise HTTPException(status_code=400, detail="Please select an image file")
-    data = await avatar.read()
-    if len(data) > MAX_COVER_PHOTO_BYTES:
-        raise HTTPException(status_code=400, detail="Image size must be less than 5MB")
+    data, mime = await validate.image_upload(avatar, "Profile picture")
 
     user_role, _ = _role_row(db, user)
     if not user_role:
         user_role = UserRole(user_id=user.id, role_type=user.role)
         db.add(user_role)
     user_role.avatar_data = data
-    user_role.avatar_type = avatar.content_type
+    user_role.avatar_type = mime
     db.commit()
 
     return {"success": True, "message": "Profile picture updated", "avatarUrl": f"/api/users/{user.id}/avatar"}
 
 
-@router.get("/users/{user_id}/avatar")
+@router.get("/users/{user_id}/avatar", dependencies=[Depends(current_user)])
 def get_user_avatar(user_id: int, db: Session = Depends(get_db)):
     """
     Serve a user's profile picture from the database
@@ -1749,34 +1732,29 @@ async def update_event(
     event_time: str = Form(...),
     venue: str = Form(...),
     capacity: int = Form(...),
-    organizer_id: int = Form(...),
+    organizer_id: Optional[int] = Form(None),  # ignored: the organizer is the logged-in user
     department: str = Form(None),
     about_event: str = Form(None),
     event_end_time: str = Form(None),
     registration_start: str = Form(None),
     registration_end: str = Form(None),
     cover_photo: UploadFile = File(None),
+    organizer: User = Depends(organizer_only),
     db: Session = Depends(get_db)
 ):
     """
-    Update an event (only by the organizer who created it). The cover photo is
-    replaced only when a new one is uploaded.
+    Update an event (only by the organizer who created it, from the login cookie).
+    The cover photo is replaced only when a new one is uploaded.
     """
     from sqlalchemy import text
     from datetime import datetime
 
-    owner = db.execute(text("""
-        SELECT e.id FROM events e
-        JOIN user_roles ur ON ur.id = e.user_role_id
-        WHERE e.id = :event_id AND ur.user_id = :organizer_id
-    """), {"event_id": event_id, "organizer_id": organizer_id}).first()
-    if not owner:
+    if not _organizer_owns_event(db, event_id, organizer.id):
         raise HTTPException(status_code=404, detail="Event not found")
 
+    fields = _validate_event_text(event_name, event_description, venue, capacity, department, about_event)
     ends_at = _validate_event_times(event_date, event_time, event_end_time)
     registration_start, registration_end = _validate_registration_period(registration_start, registration_end, event_date)
-    if capacity < 1:
-        raise HTTPException(status_code=400, detail="Capacity must be at least 1")
 
     enrolled = db.execute(
         text("SELECT COUNT(*) FROM registrations WHERE event_id = :id"), {"id": event_id}
@@ -1788,31 +1766,22 @@ async def update_event(
         )
 
     params = {
+        **fields,
         "id": event_id,
-        "event_name": event_name,
-        "event_description": event_description,
         "event_date": event_date,
         "event_time": event_time,
         "event_end_time": event_end_time or None,
         # Moving the end time later reopens an auto-closed event; an earlier one closes it
         "status_open": ends_at > datetime.now(),
-        "venue": venue,
-        "capacity": capacity,
-        "department": department or None,
-        "about_event": about_event or None,
         "registration_start": registration_start,
         "registration_end": registration_end,
     }
     cover_sql = ""
     if cover_photo and cover_photo.filename:
-        if not (cover_photo.content_type or "").startswith("image/"):
-            raise HTTPException(status_code=400, detail="Cover photo must be an image")
-        data = await cover_photo.read()
-        if len(data) > MAX_COVER_PHOTO_BYTES:
-            raise HTTPException(status_code=400, detail="Cover photo must be 5 MB or smaller")
+        data, mime = await validate.image_upload(cover_photo, "Cover photo")
         params.update(
             cover_photo_data=data,
-            cover_photo_type=cover_photo.content_type,
+            cover_photo_type=mime,
             cover_photo=f"/api/events/{event_id}/cover"
         )
         cover_sql = (", cover_photo_data = :cover_photo_data, "
@@ -1836,7 +1805,7 @@ async def update_event(
 
 
 
-@router.post("/verify-email")
+@router.post("/verify-email", dependencies=[Depends(rate_limit("verify-email", 20, 600))])
 def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     """
     Opened from the emailed "Verify Account" link; creates the student/participant
@@ -1848,7 +1817,7 @@ def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
         SELECT id, email, full_name, role, password_hash, department, contact_number,
                expires_at > NOW() AS still_valid
         FROM pending_registrations WHERE code_hash = :h
-    """), {"h": _hash_code(token.strip())}).first()
+    """), {"h": _hash_code(validate.token(token))}).first()
 
     if not pending:
         raise HTTPException(
@@ -1886,7 +1855,7 @@ def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     return {"success": True, "message": "Your account has been verified. You can now log in."}
 
 
-@router.post("/resend-verification")
+@router.post("/resend-verification", dependencies=[Depends(reset_email_limit)])
 async def resend_verification(email: str = Form(...), db: Session = Depends(get_db)):
     """
     Send a new verification link for a pending registration (at most once every VERIFICATION_RESEND_SECONDS)
@@ -1894,7 +1863,7 @@ async def resend_verification(email: str = Form(...), db: Session = Depends(get_
     from sqlalchemy import text
     from services.email_service import send_verification_link_email
 
-    email = email.strip().lower()
+    email = validate.email(email)
     pending = db.execute(text("""
         SELECT id, full_name, EXTRACT(EPOCH FROM (NOW() - last_sent_at)) AS seconds_since
         FROM pending_registrations WHERE email = :e
@@ -1928,7 +1897,7 @@ async def resend_verification(email: str = Form(...), db: Session = Depends(get_
 
 
 @router.get("/student/my-events")
-def get_my_events(request: Request, db: Session = Depends(get_db)):
+def get_my_events(user: User = Depends(attendee_only), db: Session = Depends(get_db)):
     """
     Events the logged-in student/participant enrolled in, with their attendance
     ('present', 'not_recorded', or 'pending' when the organizer hasn't
@@ -1936,7 +1905,7 @@ def get_my_events(request: Request, db: Session = Depends(get_db)):
     """
     from sqlalchemy import text
 
-    user_id = current_user_id(request)
+    user_id = user.id
     _close_finished_events(db)
     rows = db.execute(text("""
         SELECT e.id, e.event_name, e.event_date, e.event_time, e.event_end_time, e.venue, e.status,
