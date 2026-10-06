@@ -116,6 +116,7 @@ CREATE TABLE pending_registrations (
     password_hash VARCHAR(255) NOT NULL,
     department VARCHAR(150),
     contact_number VARCHAR(30),
+    employment_id VARCHAR(50),  -- organizers only
     code_hash VARCHAR(64) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     attempts SMALLINT NOT NULL DEFAULT 0,

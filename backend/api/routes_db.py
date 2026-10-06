@@ -3,7 +3,7 @@ API Routes with PostgreSQL Database Integration
 Matching the actual database schema
 """
 
-from fastapi import APIRouter, Form, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Form, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -27,24 +27,6 @@ router = APIRouter()
 admin_only = require_roles("admin")
 organizer_only = require_roles("organizer")
 attendee_only = require_roles("student", "participant")
-
-PASSWORD_SYMBOLS = "!@#$%&*_"
-
-
-def generate_strong_password(length: int = 8) -> str:
-    """
-    Random 8-character password for new organizers: always at least one uppercase letter
-    (A-Z), one lowercase letter, one number and one symbol; the rest are random from all four.
-    """
-    import secrets
-    import string
-    pools = [string.ascii_uppercase, string.ascii_lowercase, string.digits, PASSWORD_SYMBOLS]
-    chars = [secrets.choice(pool) for pool in pools]
-    everything = "".join(pools)
-    chars += [secrets.choice(everything) for _ in range(length - len(chars))]
-    secrets.SystemRandom().shuffle(chars)
-    return "".join(chars)
-
 
 @router.get("/test")
 def test_api():
@@ -183,7 +165,7 @@ async def logout():
 
 
 
-# --- Email verification (link) for students and participants ---
+# --- Email verification (link) for students, participants and organizers ---
 # Registrations wait in pending_registrations until the emailed "Verify Account" link
 # is opened; only then is the account created in users/user_roles. Unverified sign-ups
 # never appear in admin lists, counts or login. pending_registrations.code_hash holds
@@ -191,7 +173,7 @@ async def logout():
 VERIFICATION_LINK_TTL_HOURS = 24
 VERIFICATION_RESEND_SECONDS = 60
 PENDING_REGISTRATION_TTL_HOURS = 24
-SELF_REGISTERED_ROLES = ("student", "participant")
+SELF_REGISTERED_ROLES = ("student", "participant", "organizer")
 
 
 def _hash_code(code: str) -> str:
@@ -218,7 +200,8 @@ def _unverified_response(email: str, message: str, status_code: int = 403) -> JS
 
 async def _start_pending_registration(
     db: Session, *, email: str, full_name: str, role: str, password: str,
-    department: Optional[str] = None, contact_number: Optional[str] = None
+    department: Optional[str] = None, contact_number: Optional[str] = None,
+    employment_id: Optional[str] = None
 ) -> JSONResponse:
     """
     Save (or replace) a pending registration and email its verification link.
@@ -231,11 +214,14 @@ async def _start_pending_registration(
     email = validate.email(email)
     validate.password(password)
     full_name = validate.text(full_name, "Full name", 150)
-    department = validate.text(department, "Department", 150, required=role == "student")
+    department = validate.text(department, "Department", 150, required=role in ("student", "organizer"))
     contact_number = validate.contact_number(contact_number, required=role == "participant")
+    employment_id = validate.text(employment_id, "Employment ID", 50, required=role == "organizer")
 
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    if employment_id and db.query(UserRole).filter(UserRole.employment_id == employment_id).first():
+        raise HTTPException(status_code=400, detail="Employment ID already exists")
 
     # Drop abandoned sign-ups
     db.execute(text(f"""
@@ -258,10 +244,10 @@ async def _start_pending_registration(
     db.execute(text("DELETE FROM pending_registrations WHERE email = :e"), {"e": email})
     db.execute(text(f"""
         INSERT INTO pending_registrations (
-            email, full_name, role, password_hash, department, contact_number,
+            email, full_name, role, password_hash, department, contact_number, employment_id,
             code_hash, expires_at, attempts, last_sent_at
         ) VALUES (
-            :email, :full_name, :role, :password_hash, :department, :contact_number,
+            :email, :full_name, :role, :password_hash, :department, :contact_number, :employment_id,
             :code_hash, NOW() + INTERVAL '{VERIFICATION_LINK_TTL_HOURS} hours', 0, NOW()
         )
     """), {
@@ -271,6 +257,7 @@ async def _start_pending_registration(
         "password_hash": hash_password(password),
         "department": department,
         "contact_number": contact_number,
+        "employment_id": employment_id,
         "code_hash": _hash_code(token),
     })
     db.commit()
@@ -327,132 +314,24 @@ async def register_participant(
     )
 
 
-@router.post("/organizers", dependencies=[Depends(admin_only)])
-async def create_organizer(
-    background_tasks: BackgroundTasks,
-    employment_id: str = Form(...),
+@router.post("/register/organizer", dependencies=[Depends(register_limit)])
+async def register_organizer(
     full_name: str = Form(...),
+    employment_id: str = Form(...),
     department: str = Form(...),
     email: str = Form(...),
+    password: str = Form(...),
     contact_number: str = Form(None),  # Optional field
     db: Session = Depends(get_db)
 ):
     """
-    Create organizer (admin only). The credentials email is sent in the background
-    after the response (SMTP takes ~10 s), so the admin doesn't wait for it.
+    Organizer self-registration ("Are you an organizer?" on the login page). Like students,
+    the account is created only after the emailed verification link is opened; no admin step.
     """
-    try:
-        email = validate.email(email)
-        employment_id = validate.text(employment_id, "Employment ID", 50)
-        full_name = validate.text(full_name, "Full name", 150)
-        department = validate.text(department, "Department", 150)
-        contact_number = validate.contact_number(contact_number)
-        print(f"\n🔧 Creating organizer: {full_name} ({email})")
-
-        # Check if email already exists
-        existing_user = db.query(User).filter(User.email == email).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        if db.query(UserRole).filter(UserRole.employment_id == employment_id).first():
-            raise HTTPException(status_code=400, detail="Employment ID already exists")
-
-        # Generate random password
-        random_password = generate_strong_password(8)
-        
-        # Hash password
-        from auth.jwt_handler import hash_password
-        hashed_password = hash_password(random_password)
-        
-        # Get or create department
-        dept = db.query(Department).filter(Department.department_name == department).first()
-        if not dept:
-            dept = Department(department_name=department)
-            db.add(dept)
-            db.flush()
-        
-        # Create user
-        new_user = User(
-            full_name=full_name,
-            email=email,
-            password=hashed_password,
-            role='organizer'
-        )
-        db.add(new_user)
-        db.flush()
-        
-        # Create user_role entry for additional info
-        user_role = UserRole(
-            user_id=new_user.id,
-            role_type='organizer',
-            department_id=dept.id,
-            employment_id=employment_id,
-            contact_number=contact_number
-        )
-        db.add(user_role)
-        db.commit()
-        
-        organizer = {
-            "id": new_user.id,
-            "employment_id": employment_id,
-            "full_name": full_name,
-            "department": department,
-            "email": email,
-            "contact_number": contact_number
-        }
-
-        from services.email_service import EMAIL_ENABLED, send_organizer_credentials
-        if not EMAIL_ENABLED:
-            # No email will go out: show the admin the password to share themselves
-            return JSONResponse(
-                status_code=201,
-                content={
-                    "success": True,
-                    "message": "Organizer created but email is disabled (EMAIL_ENABLED=false)",
-                    "organizer": organizer,
-                    "credentials": {"email": email, "password": random_password},
-                    "email_sent": False
-                }
-            )
-
-        # Sent after this response is returned. If delivery fails it is only logged
-        # (the organizer can still use Forgot Password on the login page).
-        background_tasks.add_task(
-            send_organizer_credentials,
-            to_email=email,
-            organizer_name=full_name,
-            employment_id=employment_id,
-            password=random_password
-        )
-        print(f"📧 Credentials email to {email} queued (sent in the background)")
-
-        return JSONResponse(
-            status_code=201,
-            content={
-                "success": True,
-                "message": "Organizer created; credentials are being emailed",
-                "organizer": organizer,
-                "credentials": {"email": email},
-                "email_sent": True
-            }
-        )
-
-    except HTTPException as http_ex:
-        # Re-raise HTTP exceptions (like 400 for duplicate email)
-        print(f"❌ HTTP Exception: {http_ex.detail}")
-        raise http_ex
-    
-    except Exception as e:
-        # Catch all other exceptions
-        print(f"❌ UNEXPECTED ERROR creating organizer:")
-        print(f"   Error: {e}")
-        print(f"   Type: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
-        
-        # Rollback database changes
-        db.rollback()
-        
-        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
+    return await _start_pending_registration(
+        db, email=email, full_name=full_name, role="organizer", password=password,
+        department=department, contact_number=contact_number, employment_id=employment_id
+    )
 
 
 @router.get("/organizers", dependencies=[Depends(admin_only)])
@@ -873,7 +752,7 @@ def _validate_event_text(event_name, event_description, venue, capacity, departm
         "event_description": validate.text(event_description, "Description", 5000, multiline=True),
         "venue": validate.text(venue, "Venue", 200),
         "capacity": validate.whole_number(capacity, "Capacity", 1, 100000),
-        "department": validate.text(department, "Department", 150, required=False),
+        "department": validate.text(department, "Department", 150),
         "about_event": validate.text(about_event, "About the event", 10000, required=False, multiline=True),
     }
 
@@ -1205,9 +1084,14 @@ def get_organizer_stats(organizer: User = Depends(organizer_only), db: Session =
 
 
 @router.get("/organizer/attendees")
-def get_organizer_attendees(organizer: User = Depends(organizer_only), db: Session = Depends(get_db)):
+def get_organizer_attendees(
+    event_id: Optional[int] = None,
+    organizer: User = Depends(organizer_only),
+    db: Session = Depends(get_db)
+):
     """
-    Everyone enrolled in the logged-in organizer's events, one row per registration
+    Everyone enrolled in the logged-in organizer's events, one row per registration.
+    With ?event_id=, only that event's enrollees (the Attendance modal on the Event page).
     """
     from sqlalchemy import text
     organizer_id = organizer.id
@@ -1217,7 +1101,7 @@ def get_organizer_attendees(organizer: User = Depends(organizer_only), db: Sessi
                d.department_name, ur.contact_number,
                COALESCE(a.gender, ur.gender), COALESCE(a.year_level::text, ur.year_level),
                COALESCE(a.attendance_status, 'pending') AS status,
-               COALESCE(a.address, ur.address) AS address
+               COALESCE(a.address, ur.address) AS address, e.id AS event_id
         FROM registrations r
         JOIN users u ON u.id = r.user_id
         JOIN events e ON e.id = r.event_id
@@ -1226,9 +1110,10 @@ def get_organizer_attendees(organizer: User = Depends(organizer_only), db: Sessi
         LEFT JOIN departments d ON d.id = ur.department_id
         LEFT JOIN attendees a ON a.registration_id = r.id
         WHERE org.user_id = :organizer_id AND org.role_type = 'organizer'
+          AND (CAST(:event_id AS INTEGER) IS NULL OR e.id = :event_id)
         ORDER BY e.event_name, u.full_name
     """)
-    rows = db.execute(query, {"organizer_id": organizer_id}).fetchall()
+    rows = db.execute(query, {"organizer_id": organizer_id, "event_id": event_id}).fetchall()
 
     return {
         "success": True,
@@ -1244,7 +1129,8 @@ def get_organizer_attendees(organizer: User = Depends(organizer_only), db: Sessi
                 "gender": row[7] or "N/A",
                 "yearLevel": str(row[8]) if row[8] else "N/A",
                 "status": row[9],
-                "address": row[10] or "N/A"
+                "address": row[10] or "N/A",
+                "eventId": row[11]
             }
             for row in rows
         ]
@@ -1808,13 +1694,13 @@ async def update_event(
 @router.post("/verify-email", dependencies=[Depends(rate_limit("verify-email", 20, 600))])
 def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     """
-    Opened from the emailed "Verify Account" link; creates the student/participant
+    Opened from the emailed "Verify Account" link; creates the student/participant/organizer
     account from the pending registration.
     """
     from sqlalchemy import text
 
     pending = db.execute(text("""
-        SELECT id, email, full_name, role, password_hash, department, contact_number,
+        SELECT id, email, full_name, role, password_hash, department, contact_number, employment_id,
                expires_at > NOW() AS still_valid
         FROM pending_registrations WHERE code_hash = :h
     """), {"h": _hash_code(validate.token(token))}).first()
@@ -1834,6 +1720,15 @@ def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
         db.commit()
         return {"success": True, "message": "Your account is already verified. You can log in."}
 
+    # Another organizer may have verified with the same Employment ID since this sign-up
+    if pending.employment_id and db.query(UserRole).filter(UserRole.employment_id == pending.employment_id).first():
+        db.execute(text("DELETE FROM pending_registrations WHERE id = :id"), {"id": pending.id})
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="This Employment ID is already registered. Please register again with your correct Employment ID."
+        )
+
     # Link is valid: create the real account now
     new_user = User(
         full_name=pending.full_name,
@@ -1845,7 +1740,8 @@ def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     db.add(new_user)
     db.flush()
 
-    user_role = UserRole(user_id=new_user.id, role_type=pending.role, contact_number=pending.contact_number)
+    user_role = UserRole(user_id=new_user.id, role_type=pending.role, contact_number=pending.contact_number,
+                         employment_id=pending.employment_id)
     if pending.department:
         user_role.department_id = get_or_create_department(db, pending.department).id
     db.add(user_role)

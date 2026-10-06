@@ -32,6 +32,16 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-CSRF-Token"],
 )
 
+@app.on_event("startup")
+def add_missing_columns():
+    """Columns added after schema.sql was first run (idempotent; keeps existing data)."""
+    from sqlalchemy import text
+    from database.config import engine
+    with engine.begin() as conn:
+        # Organizer self-registration stores the Employment ID until the email is verified
+        conn.execute(text("ALTER TABLE pending_registrations ADD COLUMN IF NOT EXISTS employment_id VARCHAR(50)"))
+
+
 # Include database routes (PostgreSQL) - MUST BE BEFORE MOUNTS
 app.include_router(db_router, prefix="/api")
 
