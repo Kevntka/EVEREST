@@ -21,6 +21,7 @@ import {
 import { ThemeService } from '../../services/theme.service';
 
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
@@ -49,6 +50,7 @@ export interface ProfileData {
 })
 export class StudentProfile implements OnInit {
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   private changePasswordService = inject(ChangePasswordService);
   showDropdown = false;
   sidebarOpen = true;
@@ -133,10 +135,7 @@ export class StudentProfile implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userName');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   goToDashboard(): void {

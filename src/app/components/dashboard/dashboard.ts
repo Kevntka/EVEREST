@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, UserCheck, CalendarCheck, CalendarX2, CalendarX, Eye, Trash2 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { autoRefresh } from '../../utils/auto-refresh';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
@@ -39,6 +40,7 @@ export interface Event {
 export class Dashboard implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadEvents());
   showDropdown = false;
@@ -220,12 +222,7 @@ export class Dashboard implements OnInit {
    * Sign out user and navigate back to login
    */
   signOut(): void {
-    // Clear any stored authentication data
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    
-    // Navigate to login page
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   /**

@@ -22,6 +22,7 @@ import {
 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { ChangePasswordService } from '../../services/change-password.service';
@@ -58,6 +59,7 @@ export class OrganizerEvents implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   isSaving = false; // disables the submit button while the request runs
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   readonly statusOptions: SelectOption[] = [{ value: '', label: 'Status' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'open', label: 'Open' }, { value: 'full', label: 'Full' }, { value: 'closed', label: 'Closed' }];
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadEvents());
@@ -172,10 +174,7 @@ export class OrganizerEvents implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('organizerName');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   goToDashboard(): void {

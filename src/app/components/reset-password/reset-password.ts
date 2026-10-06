@@ -7,6 +7,7 @@ import { ThemeService } from '../../services/theme.service';
 import { HttpClient } from '@angular/common/http';
 
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { PasswordChecklist } from '../password-checklist/password-checklist';
 @Component({
   selector: 'app-reset-password',
@@ -17,6 +18,7 @@ import { PasswordChecklist } from '../password-checklist/password-checklist';
 })
 export class ResetPassword implements OnInit {
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   token: string = '';
   newPassword: string = '';
   confirmPassword: string = '';
@@ -91,9 +93,8 @@ export class ResetPassword implements OnInit {
 
   private signOutIfLoggedIn(): void {
     if (!localStorage.getItem('userRole')) return;
-    ['userToken', 'userRole', 'userName', 'userId', 'organizerId', 'organizerName']
-      .forEach(key => localStorage.removeItem(key));
-    this.http.post('http://localhost:8000/api/logout', {}, { withCredentials: true }).subscribe({ error: () => {} });
+    this.session.clear();
+    this.http.post('http://localhost:8000/api/logout', {}).subscribe({ error: () => {} });
   }
 
   backToLogin(): void {

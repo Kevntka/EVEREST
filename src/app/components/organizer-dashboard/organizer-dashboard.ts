@@ -22,6 +22,7 @@ import {
 import { ThemeService } from '../../services/theme.service';
 
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { ChangePasswordService } from '../../services/change-password.service';
@@ -57,6 +58,7 @@ interface AttendanceData {
 })
 export class OrganizerDashboard implements OnInit {
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadDashboardStats());
   private changePasswordService = inject(ChangePasswordService);
@@ -173,13 +175,7 @@ export class OrganizerDashboard implements OnInit {
    * Sign out organizer and navigate back to login
    */
   signOut(): void {
-    // Clear stored authentication data
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('organizerName');
-    
-    // Navigate to login page
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   /**

@@ -22,6 +22,7 @@ import {
 import { ThemeService } from '../../services/theme.service';
 
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
@@ -51,6 +52,7 @@ export interface Attendee {
 export class OrganizerAttendance implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   readonly filterOptions: SelectOption[] = [{ value: '', label: 'All' }, { value: 'student', label: 'Student' }, { value: 'participant', label: 'Participant' }];
   private changePasswordService = inject(ChangePasswordService);
   showDropdown = false;
@@ -150,10 +152,7 @@ export class OrganizerAttendance implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('organizerName');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   goToDashboard(): void {

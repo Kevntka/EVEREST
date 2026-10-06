@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, MapPin, Phone, UserRound, Cake, Hourglass } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
@@ -36,6 +37,7 @@ export interface Participant {
 export class Participants implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   showDropdown = false;
   sidebarOpen = true;
   searchName = '';
@@ -178,9 +180,7 @@ export class Participants implements OnInit {
    * Sign out user and navigate back to login
    */
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   /**

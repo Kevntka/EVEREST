@@ -1,104 +1,54 @@
-import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpEvent } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Observable, from, switchMap, catchError, throwError } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { Observable, catchError, map, shareReplay, switchMap, throwError } from 'rxjs';
 
-// CSRF token storage
-let csrfToken: string | null = null;
+export const API_ORIGIN = 'http://localhost:8000';
+const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
-/**
- * Get CSRF token from cookie
- */
-function getCsrfTokenFromCookie(): string | null {
-  const name = 'csrf_token=';
-  const decodedCookie = decodeURIComponent(document.cookie);
-  const cookieArray = decodedCookie.split(';');
-  
-  for (let cookie of cookieArray) {
-    cookie = cookie.trim();
-    if (cookie.indexOf(name) === 0) {
-      return cookie.substring(name.length);
-    }
-  }
-  return null;
-}
+let token$: Observable<string> | null = null;
 
-/**
- * Fetch CSRF token from backend
- */
-async function fetchCsrfToken(http: HttpClient): Promise<string> {
-  try {
-    const response: any = await http.get('http://localhost:8000/api/csrf-token', {
-      withCredentials: true
-    }).toPromise();
-    
-    if (response && response.csrf_token) {
-      const token: string = response.csrf_token;
-      csrfToken = token;
-      return token;
-    }
-    
-    throw new Error('No CSRF token in response');
-  } catch (error) {
-    console.error('Failed to fetch CSRF token:', error);
-    throw error;
-  }
-}
-
-/**
- * HTTP Interceptor to automatically add CSRF token to requests
- */
-export const csrfInterceptor: HttpInterceptorFn = (
-  req: HttpRequest<any>,
-  next: HttpHandlerFn
-): Observable<HttpEvent<any>> => {
-  const http = inject(HttpClient);
-  
-  // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
-    return next(req);
-  }
-  
-  // Skip CSRF for external URLs (not our API)
-  if (!req.url.includes('localhost:8000/api')) {
-    return next(req);
-  }
-  
-  // Skip CSRF for login endpoint (token will be set after login)
-  if (req.url.includes('/api/login')) {
-    return next(req);
-  }
-  
-  // Get token from cookie first
-  let token: string | null = getCsrfTokenFromCookie();
-  
-  if (!token && csrfToken) {
-    token = csrfToken;
-  }
-  
-  // If no token yet, fetch it first
-  if (!token) {
-    return from(fetchCsrfToken(http)).pipe(
-      switchMap((fetchedToken: string) => {
-        // Clone request and add CSRF token
-        const clonedReq = req.clone({
-          withCredentials: true,
-          headers: req.headers.set('X-CSRF-Token', fetchedToken)
-        });
-        return next(clonedReq);
-      }),
+/** GET /api/csrf-token once and share the answer with every request waiting for it. */
+function csrfToken(http: HttpClient): Observable<string> {
+  token$ ??= http
+    .get<{ csrf_token: string }>(`${API_ORIGIN}/api/csrf-token`, { withCredentials: true })
+    .pipe(
+      map((res) => res.csrf_token),
       catchError((error) => {
-        console.error('CSRF interceptor error:', error);
+        token$ = null; // let the next request try again
         return throwError(() => error);
-      })
+      }),
+      shareReplay(1),
     );
+  return token$;
+}
+
+/** For tests: forget the cached token. */
+export function resetCsrfToken(): void {
+  token$ = null;
+}
+
+/**
+ * CSRF protection (backend: security/csrf.py). Every POST/PUT/PATCH/DELETE to the API
+ * carries the X-CSRF-Token header with the token from GET /api/csrf-token. If the
+ * backend rejects it (403 with csrf_failed, e.g. the server restarted with a new
+ * secret), the token is fetched again and the request is retried once.
+ */
+export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
+  if (SAFE_METHODS.includes(req.method) || !req.url.startsWith(`${API_ORIGIN}/api`)) {
+    return next(req);
   }
-  
-  // Clone request and add CSRF token (token is guaranteed non-null here)
-  const clonedReq = req.clone({
-    withCredentials: true,
-    headers: req.headers.set('X-CSRF-Token', token)
-  });
-  
-  return next(clonedReq);
+  const http = inject(HttpClient);
+  const withToken = (token: string): HttpRequest<unknown> =>
+    req.clone({ withCredentials: true, setHeaders: { 'X-CSRF-Token': token } });
+
+  return csrfToken(http).pipe(
+    switchMap((token) => next(withToken(token))),
+    catchError((error) => {
+      if (!(error instanceof HttpErrorResponse) || error.status !== 403 || !error.error?.csrf_failed) {
+        return throwError(() => error);
+      }
+      token$ = null;
+      return csrfToken(http).pipe(switchMap((token) => next(withToken(token))));
+    }),
+  );
 };

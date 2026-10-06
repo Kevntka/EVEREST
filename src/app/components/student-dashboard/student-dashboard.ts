@@ -22,6 +22,7 @@ import { formatTimeRange } from '../../utils/event-time';
 import { registrationOpensOn, isRegistrationOpen, formatShortDate, displayStatus } from '../../utils/registration';
 
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { ChangePasswordService } from '../../services/change-password.service';
@@ -51,6 +52,7 @@ export interface Event {
 })
 export class StudentDashboard implements OnInit {
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   readonly statusOptions: SelectOption[] = [{ value: '', label: 'Status' }, { value: 'open', label: 'Open' }, { value: 'full', label: 'Full' }, { value: 'closed', label: 'Closed' }];
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadEvents());
@@ -169,10 +171,7 @@ export class StudentDashboard implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userName');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
   viewEventDetails(event: Event): void {

@@ -19,6 +19,7 @@ import {
 import { ThemeService } from '../../services/theme.service';
 import { formatTimeRange } from '../../utils/event-time';
 import { DialogService } from '../../services/dialog.service';
+import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { ChangePasswordService } from '../../services/change-password.service';
@@ -48,6 +49,7 @@ const PAGE_SIZE = 10;
 })
 export class MyEvents implements OnInit {
   private dialog = inject(DialogService);
+  private session = inject(SessionService);
   /** Re-fetch every 10s so statuses (Open / Full / Closed / Upcoming) update without a reload. */
   private autoRefresh = autoRefresh(() => this.loadMyEvents(true));
   private changePasswordService = inject(ChangePasswordService);
@@ -183,10 +185,7 @@ export class MyEvents implements OnInit {
   }
 
   signOut(): void {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userName');
-    this.router.navigate(['/login']);
+    this.session.signOut();
   }
 
 
