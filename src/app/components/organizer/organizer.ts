@@ -259,33 +259,30 @@ export class Organizer implements OnInit {
    * Input validation handlers
    */
   
-  // Full Name - Letters and spaces only, auto uppercase
+  // Full Name - Letters (incl. Ñ and accents), spaces, . ' -; auto uppercase
   onFullNameInput(event: any): void {
     let value = event.target.value;
-    // Remove non-letter characters (except spaces)
-    value = value.replace(/[^A-Za-z\s]/g, '');
+    // Same characters the organizer could use when registering ("Juan D. Dela Cruz", "Ñiño")
+    value = value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s.'-]/g, '');
     // Convert to uppercase
     value = value.toUpperCase();
     this.newOrganizer.fullName = value;
     event.target.value = value;
   }
 
-  // Employment ID - Numbers only, auto uppercase
+  // Employment ID - Letters, numbers and hyphens (e.g. EMP-0123), auto uppercase
   onEmploymentIdInput(event: any): void {
     let value = event.target.value;
-    // Remove non-numeric characters
-    value = value.replace(/[^0-9]/g, '');
-    // Convert to uppercase (for display consistency)
+    value = value.replace(/[^A-Za-z0-9-]/g, '');
     value = value.toUpperCase();
     this.newOrganizer.employmentId = value;
     event.target.value = value;
   }
 
-  // Department - Letters and spaces only, auto uppercase
+  // Department - Letters, spaces and . ' - &; auto uppercase
   onDepartmentInput(event: any): void {
     let value = event.target.value;
-    // Remove non-letter characters (except spaces)
-    value = value.replace(/[^A-Za-z\s]/g, '');
+    value = value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s.'&-]/g, '');
     // Convert to uppercase
     value = value.toUpperCase();
     this.newOrganizer.department = value;

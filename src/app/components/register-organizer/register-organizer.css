@@ -1,4 +1,3 @@
-
 :host {
   display: flex;
   justify-content: center;
@@ -105,8 +104,7 @@
   color: #fff;
 }
 
-
-.login-container {
+.register-container {
   background: white;
   padding: 40px 50px;
   border-radius: 8px;
@@ -115,59 +113,32 @@
   max-width: 400px;
   position: relative;
   z-index: 1;
-  transition: all 0.3s ease;
 }
 
-:host-context(body.dark-mode) .login-container {
-  background: #2a2a2a;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.login-header {
+.register-header {
   text-align: center;
   margin-bottom: 30px;
 }
 
-.login-header h1 {
+.register-header h1 {
   font-size: 28px;
   font-weight: 600;
   margin-bottom: 8px;
   color: #333;
-  transition: color 0.3s ease;
 }
 
-:host-context(body.dark-mode) .login-header h1 {
-  color: #fff;
-}
-
-.login-header p {
+.register-header p {
   font-size: 14px;
   color: #666;
-  transition: color 0.3s ease;
-}
-
-:host-context(body.dark-mode) .login-header p {
-  color: #aaa;
 }
 
 .form-group {
   margin-bottom: 20px;
 }
 
-.form-group label {
-  display: block;
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 8px;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-:host-context(body.dark-mode) .form-group label {
-  color: #fff;
-}
-
+.form-group input[type="text"],
 .form-group input[type="email"],
+.form-group input[type="tel"],
 .form-group input.password-input {
   width: 100%;
   padding: 12px 15px;
@@ -176,34 +147,26 @@
   font-size: 14px;
   background-color: #f5f5f5;
   transition: all 0.3s ease;
-  color: #333;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-:host-context(body.dark-mode) .form-group input[type="email"],
-:host-context(body.dark-mode) .form-group input.password-input {
-  background-color: #3a3a3a;
-  border-color: #555;
-  color: #fff;
-}
-
+.form-group input[type="text"]:focus,
 .form-group input[type="email"]:focus,
+.form-group input[type="tel"]:focus,
 .form-group input.password-input:focus {
   outline: none;
-  border-color: #ff5555;
+  border-color: #dc3545;
   background-color: white;
 }
 
-:host-context(body.dark-mode) .form-group input[type="email"]:focus,
-:host-context(body.dark-mode) .form-group input.password-input:focus {
-  background-color: #4a4a4a;
-  border-color: #ff5555;
-}
-
-.captcha-container {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.success-message {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  text-align: center;
 }
 
 .error-message {
@@ -216,7 +179,7 @@
   text-align: center;
 }
 
-.btn-login {
+.btn-register {
   width: 100%;
   padding: 14px;
   background-color: #dc3545;
@@ -227,76 +190,84 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  margin-bottom: 12px;
+  margin-bottom: 15px;
 }
 
-.btn-login:hover:not(:disabled) {
+.btn-register:hover:not(:disabled) {
   background-color: #c82333;
 }
 
-.btn-login:disabled {
+.btn-register:disabled {
   background-color: #f5c6cb;
   cursor: not-allowed;
 }
 
-.btn-create {
-  width: 100%;
-  padding: 14px;
-  background-color: white;
-  color: #333;
-  border: 2px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
+/* "Already have an account? Login" (same as the Create Account page) */
+.login-link {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.login-link a {
+  color: #dc3545;
+  text-decoration: none;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  margin-bottom: 15px;
-}
-
-.btn-create:hover {
-  border-color: #bbb;
-  background-color: #f9f9f9;
-}
-
-:host-context(body.dark-mode) .btn-create {
-  background-color: #3a3a3a;
-  color: #fff;
-  border-color: #555;
-}
-
-:host-context(body.dark-mode) .btn-create:hover {
-  border-color: #777;
-  background-color: #4a4a4a;
-}
-
-.forgot-password {
-  text-align: center;
-}
-
-.forgot-password a {
-  color: #999;
-  text-decoration: none;
-  font-size: 13px;
   transition: color 0.3s ease;
 }
 
-.forgot-password a:hover {
-  color: #dc3545;
-}
-
-:host-context(body.dark-mode) .forgot-password a {
-  color: #aaa;
-}
-
-:host-context(body.dark-mode) .forgot-password a:hover {
-  color: #ff5555;
+.login-link a:hover {
+  color: #c82333;
+  text-decoration: underline;
 }
 
 @media (max-width: 480px) {
-  .login-container {
+  .register-container {
     padding: 30px 25px;
     margin: 20px;
   }
+}
+
+/* Dark mode (matches login page) */
+:host-context(body.dark-mode) .register-container {
+  background: #2a2a2a;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+:host-context(body.dark-mode) .register-header h1 {
+  color: #fff;
+}
+
+:host-context(body.dark-mode) .register-header p {
+  color: #aaa;
+}
+
+:host-context(body.dark-mode) .form-group input {
+  background-color: #3a3a3a;
+  border-color: #555;
+  color: #fff;
+}
+
+:host-context(body.dark-mode) .form-group input:focus {
+  background-color: #4a4a4a;
+  border-color: #ff5555;
+}
+
+:host-context(body.dark-mode) .form-group input::placeholder {
+  color: #aaa;
+}
+
+:host-context(body.dark-mode) .login-link {
+  color: #aaa;
+}
+
+:host-context(body.dark-mode) .login-link a {
+  color: #ff5555;
+}
+
+:host-context(body.dark-mode) .login-link a:hover {
+  color: #ff7777;
 }
 
 /* Password visibility toggle */
@@ -340,6 +311,28 @@
   color: #ffffff;
 }
 
+/* "Passwords match" hint under Re-enter Password */
+.match-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #dc3545;
+}
+
+.match-hint.ok {
+  color: #16a34a;
+}
+
+.match-hint lucide-icon {
+  display: flex;
+}
+
+:host-context(body.dark-mode) .match-hint.ok {
+  color: #4ade80;
+}
+
 /* Red tint over the background photo (added on top of the dark ::before layer; clicks pass through) */
 :host::after {
   content: '';
@@ -352,35 +345,4 @@
 
 :host-context(body.dark-mode)::after {
   background: rgba(220, 53, 69, 0.18);
-}
-
-/* "Are you an organizer? Register here" at the bottom of the card */
-.organizer-signup {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid #e9ecef;
-  text-align: center;
-  font-size: 13px;
-  color: #666;
-}
-
-.organizer-signup a {
-  color: #dc3545;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.organizer-signup a:hover {
-  color: #c82333;
-  text-decoration: underline;
-}
-
-:host-context(body.dark-mode) .organizer-signup {
-  border-top-color: #404040;
-  color: #aaa;
-}
-
-:host-context(body.dark-mode) .organizer-signup a {
-  color: #ff6b6b;
 }

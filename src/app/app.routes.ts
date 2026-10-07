@@ -47,4 +47,7 @@ export const routes: Routes = [
   { path: 'student-profile', component: StudentProfile, canActivate: [roleGuard(['student', 'participant'])] },
   { path: 'my-events', component: MyEvents, canActivate: [roleGuard(['student', 'participant'])] },
   { path: 'event/:id', component: EventDetails, canActivate: [authGuard] },
+
+  // Unknown URLs go to login (loginGuard sends signed-in users on to their dashboard)
+  { path: '**', redirectTo: '/login' },
 ];

@@ -156,14 +156,14 @@
             [(ngModel)]="newOrganizer.fullName"
             name="fullName"
             (input)="onFullNameInput($event)"
-            pattern="[A-Za-z\s]+"
-            title="Letters and spaces only"
+            pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-]+"
+            title="Letters, spaces, periods, apostrophes and hyphens only"
             style="text-transform: uppercase"
             required
           />
         </div>
 
-        <!-- Employment ID - Numbers only, Auto uppercase -->
+        <!-- Employment ID - Letters, numbers and hyphens (e.g. EMP-0123), Auto uppercase -->
         <div class="form-field">
           <label class="form-label">Employment ID <span style="color: #ff6b6b;">*</span></label>
           <input 
@@ -173,14 +173,14 @@
             [(ngModel)]="newOrganizer.employmentId"
             name="employmentId"
             (input)="onEmploymentIdInput($event)"
-            pattern="[0-9]+"
-            title="Numbers only"
+            pattern="[A-Za-z0-9\-]+"
+            title="Letters, numbers and hyphens only"
             style="text-transform: uppercase"
             required
           />
         </div>
 
-        <!-- Department - Letters only, Auto uppercase -->
+        <!-- Department - Letters, Auto uppercase -->
         <div class="form-field">
           <label class="form-label">Department <span style="color: #ff6b6b;">*</span></label>
           <input 
@@ -190,8 +190,8 @@
             [(ngModel)]="newOrganizer.department"
             name="department"
             (input)="onDepartmentInput($event)"
-            pattern="[A-Za-z\s]+"
-            title="Letters and spaces only"
+            pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-&amp;]+"
+            title="Letters, spaces and . ' - &amp; only"
             style="text-transform: uppercase"
             required
           />
@@ -207,7 +207,7 @@
             [(ngModel)]="newOrganizer.email"
             name="email"
             (input)="onEmailInput($event)"
-            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+            pattern="[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}"
             title="Valid email format (e.g., user@gmail.com)"
             required
           />

@@ -75,7 +75,7 @@ export class RegisterParticipant implements OnInit {
     }
 
     // Validate all fields
-    if (!this.email || !this.contactNumber || !this.password) {
+    if (!this.email || !this.password) {
       this.errorMessage = 'Please fill in all fields';
       return;
     }
@@ -84,7 +84,9 @@ export class RegisterParticipant implements OnInit {
     formData.append('full_name', this.fullName);
     formData.append('role', this.role);
     formData.append('email', this.email);
-    formData.append('contact_number', this.contactNumber);
+    if (this.contactNumber) {
+      formData.append('contact_number', this.contactNumber);
+    }
     formData.append('password', this.password);
 
     this.isSaving = true;

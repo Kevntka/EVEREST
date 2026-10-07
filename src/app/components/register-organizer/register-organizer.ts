@@ -14,7 +14,7 @@ import { PasswordChecklist } from '../password-checklist/password-checklist';
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule, PasswordChecklist],
   templateUrl: './register-organizer.html',
-  styleUrl: '../register-student/register-student.css', // same look as the student form
+  styleUrl: './register-organizer.css',
 })
 /**
  * Organizer self-registration, opened from "Are you an organizer?" on the login page.
@@ -48,6 +48,17 @@ export class RegisterOrganizer {
 
   toggleDarkMode() {
     this.themeService.toggleDarkMode();
+  }
+
+  /** Digits only, formatted as 0912-345-6789 as the user types (same as the participant form). */
+  onContactInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const digits = input.value.replace(/\D/g, '').slice(0, 11);
+    const value = digits.length <= 4 ? digits
+      : digits.length <= 7 ? `${digits.slice(0, 4)}-${digits.slice(4)}`
+      : `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    if (input.value !== value) input.value = value;
+    this.contactNumber = value;
   }
 
   onSubmit() {

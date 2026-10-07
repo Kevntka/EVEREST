@@ -76,8 +76,12 @@
         type="tel"
         id="contactNumber"
         name="contactNumber"
-        [(ngModel)]="contactNumber"
-        placeholder="Contact Number (optional)"
+        inputmode="numeric"
+        maxlength="13"
+        pattern="09\d{2}-\d{3}-\d{4}"
+        [ngModel]="contactNumber"
+        (input)="onContactInput($event)"
+        placeholder="Contact Number (Optional)"
         autocomplete="tel"
       >
     </div>
@@ -144,7 +148,8 @@
     </button>
   </form>
 
-  <div class="back-link">
-    Already have an account? <a (click)="goToLogin()">Log In</a>
+  <div class="login-link">
+    Already have an account?
+    <a (click)="goToLogin()">Login</a>
   </div>
 </div>
