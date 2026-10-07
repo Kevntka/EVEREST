@@ -215,7 +215,7 @@ async def _start_pending_registration(
     validate.password(password)
     full_name = validate.text(full_name, "Full name", 150)
     department = validate.text(department, "Department", 150, required=role in ("student", "organizer"))
-    contact_number = validate.contact_number(contact_number, required=role == "participant")
+    contact_number = validate.contact_number(contact_number)  # optional for every role
     employment_id = validate.text(employment_id, "Employment ID", 50, required=role == "organizer")
 
     if db.query(User).filter(User.email == email).first():
@@ -301,8 +301,8 @@ async def register_participant(
     full_name: str = Form(...),
     role: str = Form(...),
     email: str = Form(...),
-    contact_number: str = Form(...),
     password: str = Form(...),
+    contact_number: str = Form(None),  # Optional field
     db: Session = Depends(get_db)
 ):
     """

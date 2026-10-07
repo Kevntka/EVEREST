@@ -1,4 +1,4 @@
-# CLAUDE.md
+# Readme.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -18,6 +18,7 @@ Frontend (run from `frontend/event-registration/`):
 ```bash
 npm start                                  # ng serve on http://localhost:4200
 npx ng build --configuration development   # quick compile check
+npx ng build                               # production build; also enforces the size budgets in angular.json
 npm test                                   # Vitest via ng test
 npx ng test --watch=false                  # single run, no watch
 npx ng test --include src/app/app.spec.ts  # single spec file
@@ -80,5 +81,6 @@ Each page component contains its own sidebar, top bar, and modals. There is no s
 - **Table pages** (admin Dashboard, Organizer, Students, Participants, Organizer Events, and My Events) share one layout. The page content has the `page-fill` class and the table sits in a `.table-scroll` wrapper inside `.table-container`; the shared rules are in `styles.css`. The card fills the screen, rows scroll under a pinned header row, and the pagination stays at the bottom. Every list table has `min-width: 760px` (set in `styles.css`, and in `my-events.css` for My Events, overriding each page's own min-width): on wide screens it fills the card with no scrollbar, and on narrow screens it keeps its width and scrolls sideways instead of squeezing the columns. Empty and loading messages go in a `<div class="table-empty">` after the `</table>` so they center in the table area. Rows are paged 10 at a time with `Paginator` (`utils/paginator.ts`): `*ngFor="let x of pager.slice(list)"`. The `.pagination-btn` / `.pagination-info` styles (light and dark) live only in `styles.css`; don't redefine them in component CSS.
 - **Admin table action buttons** are 36px icon-only buttons whose label slides out on hover. `organizer.css` has the canonical styles. The action column reserves enough width that hovering doesn't shift the table.
 - **Create/Add modals** have Cancel and Create buttons, don't close on backdrop click, and use `backdrop-filter: blur(...)` on the overlay.
+- **Input `pattern="..."` is checked twice**: by the browser, which compiles it with the `v` flag (escape `-` inside `[...]`, or the whole pattern is ignored with a console error), and by Angular's `Validators.pattern`, which compiles it without `u` (so `\p{L}` doesn't work; list ranges like `A-Za-zÀ-ÖØ-öø-ÿ`). Admin Edit Organizer must accept what `/register/organizer` accepts (e.g. `EMP-0123`, `Juan D. O'Neil`).
 - **Dropdowns.** Use `<app-select>` (`components/select/select.ts`) instead of a native `<select>`, whose option list is drawn by the browser and can't be styled (in phone emulation it pops up huge, outside the page). It works with `[(ngModel)]`, takes `[options]` as `{ value, label }[]` and an optional `placeholder`, and draws its own arrow. Give it the page's old select class (e.g. `class="department-select"`) so the page CSS styles the box. No native `<select>` is left in the app.
 - **Confirmations and notices.** Use `DialogService` (`services/dialog.service.ts`) instead of `window.confirm` or `alert`. It is rendered once by `<app-dialog-host>` in `app.html`. `await dialog.confirm('Warning', 'Are you sure you want to delete this ...?')` is the only dialog with buttons (Cancel and OK), and it resolves to a boolean. `dialog.success('Success!' | 'Deleted!', ...)`, `dialog.warning(...)`, and `dialog.error(...)` are notices with no buttons: they stay open until the user clicks anywhere or presses Escape. Messages may contain `\n`. Every page uses it; there are no `alert()` or `confirm()` calls left.
