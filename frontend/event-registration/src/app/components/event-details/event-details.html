@@ -1,0 +1,197 @@
+<div class="event-details-container">
+  <!-- Sidebar: the logged-in role's menu (admins and students both open this page) -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">{{ roleLabel }}</h3>
+    </div>
+
+    <nav class="nav-menu">
+      @if (role === 'admin') {
+        <button class="nav-item active" (click)="goTo('/dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/organizer')">
+          <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Organizer</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/students')">
+          <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Students</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/participants')">
+          <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Participants</span>
+        </button>
+      } @else if (role === 'organizer') {
+        <button class="nav-item active" (click)="goTo('/organizer-dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/organizer-events')">
+          <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Events</span>
+        </button>
+      } @else {
+        <button class="nav-item active" (click)="goTo('/student-dashboard')">
+          <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Dashboard</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/student-profile')">
+          <lucide-icon [img]="UserCircle" class="nav-icon"></lucide-icon>
+          <span class="nav-text">Profile</span>
+        </button>
+        <button class="nav-item" (click)="goTo('/my-events')">
+          <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+          <span class="nav-text">My Events</span>
+        </button>
+      }
+    </nav>
+  </aside>
+
+  <div class="page-area">
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button class="menu-toggle" (click)="toggleSidebar()">
+        <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+      </button>
+      <h2 class="page-title">Dashboard</h2>
+    </div>
+
+    <div class="user-menu" (clickOutside)="showDropdown = false">
+      <button class="user-dropdown" (click)="toggleDropdown()">
+        <lucide-icon [img]="User" [size]="20"></lucide-icon>
+        <span class="user-name">{{ studentName | displayCase }}</span>
+        <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+      </button>
+
+      <div class="dropdown-menu" *ngIf="showDropdown">
+        <button class="dropdown-item" (click)="toggleDarkMode()">
+          <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+        </button>
+        <button class="dropdown-item" (click)="signOut()">
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="main-content" *ngIf="!loading && event">
+    <div class="content-wrapper">
+      <!-- Back Button -->
+      <button class="back-btn" (click)="backToDashboard()">
+        <lucide-icon [img]="ArrowLeft" [size]="18"></lucide-icon>
+        <span>Back to Dashboard</span>
+      </button>
+
+      <!-- Event Content Grid -->
+      <div class="event-grid">
+        <!-- Left Column - Image and About -->
+        <div class="left-column">
+          <!-- No cover photo: the title's first letter on a color picked from the title -->
+          <div class="event-image"
+               [style.background-image]="event.coverPhoto ? 'url(http://localhost:8000' + event.coverPhoto + ')' : null"
+               [style.background-color]="event.coverPhoto ? null : coverColor(event.title)">
+            @if (!event.coverPhoto) {
+              <span class="cover-initial">{{ coverInitial(event.title) }}</span>
+            }
+          </div>
+
+          <div class="about-section">
+            <h3 class="section-title">About this Event</h3>
+            <p class="section-text">{{ event.aboutEvent }}</p>
+          </div>
+        </div>
+
+        <!-- Right Column - Details and Enroll -->
+        <div class="right-column">
+          <h1 class="event-title">{{ event.title }}</h1>
+
+          <div class="event-meta">
+            <p class="meta-item">
+              <lucide-icon [img]="Calendar" [size]="16" class="meta-icon"></lucide-icon>
+              <span>{{ event.date === 'TBA' ? 'TBA' : (event.date | date: 'MMM d, y') }} | {{ event.time }}</span>
+            </p>
+            <p class="meta-item">
+              <lucide-icon [img]="MapPin" [size]="16" class="meta-icon"></lucide-icon>
+              <span>{{ event.venue }}</span>
+            </p>
+            <p class="meta-item" *ngIf="event.opensOn">
+              <lucide-icon [img]="CalendarClock" [size]="16" class="meta-icon"></lucide-icon>
+              <span>
+                Registration: {{ formatShortDate(event.opensOn) }}{{ event.closesOn ? ' - ' + formatShortDate(event.closesOn) : '' }}
+              </span>
+            </p>
+            <p class="meta-item" *ngIf="event.department">
+              <lucide-icon [img]="Building2" [size]="16" class="meta-icon"></lucide-icon>
+              <span>{{ event.department }}</span>
+            </p>
+          </div>
+
+          <p class="event-description">{{ event.description }}</p>
+
+          <!-- Capacity Stats -->
+          <div class="capacity-stats">
+            <div class="stat-box">
+              <div class="stat-value">{{ event.totalCapacity }}</div>
+              <div class="stat-label">Total Capacity</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value">{{ event.currentlyEnrolled }}</div>
+              <div class="stat-label">Currently Enrolled</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value">{{ event.slotsAvailable }}</div>
+              <div class="stat-label">Slots Available</div>
+            </div>
+          </div>
+
+          <!-- Enroll Button (students/participants only; admins open this page to view) -->
+          @if (canEnroll) {
+            @if (isEnrolled) {
+              <p class="enrolled-note">You're enrolled in this event.</p>
+              @if (attendance === 'present') {
+                <p class="attendance-note">
+                  Attendance: Present
+                </p>
+              }
+              <!-- Cancelling is only possible during the registration period -->
+              @if (canCancel) {
+                <button 
+                  class="enroll-btn cancel-enroll-btn" 
+                  (click)="cancelEnrollment()"
+                  [disabled]="enrollBusy"
+                >
+                  {{ enrollBusy ? 'Cancelling...' : 'Cancel Enrollment' }}
+                </button>
+              }
+            } @else {
+              <button 
+                class="enroll-btn" 
+                (click)="enrollInEvent()"
+                [disabled]="event.status !== 'open' || !registrationOpen || registrationOver || event.slotsAvailable <= 0 || enrollBusy"
+              >
+                {{ event.status !== 'open' ? 'Event Closed'
+                   : !registrationOpen ? 'Registration opens ' + formatShortDate(event.opensOn)
+                   : registrationOver ? 'Registration Closed'
+                   : event.slotsAvailable <= 0 ? 'Event Full' : enrollBusy ? 'Enrolling...' : 'Enroll' }}
+              </button>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="loading">
+    <lucide-icon [img]="Loader2" [size]="48" class="spinner"></lucide-icon>
+    <p>Loading event details...</p>
+  </div>
+  </div>
+</div>

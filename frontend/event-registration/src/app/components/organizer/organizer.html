@@ -1,0 +1,238 @@
+<div class="admin-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">Administrator</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button type="button" class="nav-item active" aria-current="page">
+        <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Organizer</span>
+      </button>
+      <button class="nav-item" (click)="goToStudents()">
+        <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Students</span>
+      </button>
+      <button class="nav-item" (click)="goToParticipants()">
+        <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Participants</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Organizer</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">Administrator</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content page-fill">
+      <!-- Search and Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="search-box">
+            <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+            <input 
+              type="text" 
+              placeholder="Search Name" 
+              class="search-input"
+              [(ngModel)]="searchName"
+            />
+          </div>
+
+          <app-select class="department-select" [options]="departmentOptions" [(ngModel)]="selectedDepartment"></app-select>
+        </div>
+      </div>
+
+      <!-- Organizers Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+        <table class="organizers-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Employment ID</th>
+              <th>Department</th>
+              <th>Email</th>
+              <th>Contact Number</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Loading State -->
+            
+            <!-- Empty State -->
+            
+            <!-- Organizers List -->
+            <tr *ngFor="let organizer of pager.slice(filteredOrganizers); let i = index">
+              <td>{{ organizer.full_name | displayCase }}</td>
+              <td>{{ organizer.employment_id }}</td>
+              <td>{{ organizer.department | displayCase }}</td>
+              <td>{{ organizer.email }}</td>
+              <td>{{ organizer.contact_number }}</td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn edit-btn" (click)="openEditModal(organizer)" title="Edit">
+                    <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button class="action-btn delete-btn" (click)="deleteOrganizer(organizer.id)" title="Delete">
+                    <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="isLoading">
+            Loading organizers...
+          </div>
+          <div class="table-empty" *ngIf="!isLoading && filteredOrganizers.length === 0">
+            No organizers to display
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredOrganizers)" (click)="pager.prev(filteredOrganizers)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(filteredOrganizers) }} of {{ pager.totalPages(filteredOrganizers) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredOrganizers)" (click)="pager.next(filteredOrganizers)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Organizer Modal (organizers sign up themselves from the login page) -->
+  <div class="modal-overlay" *ngIf="showAddModal">
+    <div class="modal-content">
+      <h2 class="modal-title">Edit Organizer</h2>
+      
+      <form class="modal-form" (ngSubmit)="saveOrganizer()" #organizerForm="ngForm">
+        <!-- Full Name - Letters only, Auto uppercase -->
+        <div class="form-field">
+          <label class="form-label">Full Name <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="text" 
+            placeholder="" 
+            class="form-input"
+            [(ngModel)]="newOrganizer.fullName"
+            name="fullName"
+            (input)="onFullNameInput($event)"
+            pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-]+"
+            title="Letters, spaces, periods, apostrophes and hyphens only"
+            style="text-transform: uppercase"
+            required
+          />
+        </div>
+
+        <!-- Employment ID - Letters, numbers and hyphens (e.g. EMP-0123), Auto uppercase -->
+        <div class="form-field">
+          <label class="form-label">Employment ID <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="text" 
+            placeholder="" 
+            class="form-input"
+            [(ngModel)]="newOrganizer.employmentId"
+            name="employmentId"
+            (input)="onEmploymentIdInput($event)"
+            pattern="[A-Za-z0-9\-]+"
+            title="Letters, numbers and hyphens only"
+            style="text-transform: uppercase"
+            required
+          />
+        </div>
+
+        <!-- Department - Letters, Auto uppercase -->
+        <div class="form-field">
+          <label class="form-label">Department <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="text" 
+            placeholder="" 
+            class="form-input"
+            [(ngModel)]="newOrganizer.department"
+            name="department"
+            (input)="onDepartmentInput($event)"
+            pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-&amp;]+"
+            title="Letters, spaces and . ' - &amp; only"
+            style="text-transform: uppercase"
+            required
+          />
+        </div>
+
+        <!-- Email - Valid format -->
+        <div class="form-field">
+          <label class="form-label">Email <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="email" 
+            placeholder="" 
+            class="form-input"
+            [(ngModel)]="newOrganizer.email"
+            name="email"
+            (input)="onEmailInput($event)"
+            pattern="[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}"
+            title="Valid email format (e.g., user@gmail.com)"
+            required
+          />
+        </div>
+
+        <!-- Contact Number - Optional, Auto-format -->
+        <div class="form-field">
+          <label class="form-label">Contact Number <span style="color: #888; font-size: 0.9em;">(Optional)</span></label>
+          <input 
+            type="text" 
+            placeholder="" 
+            class="form-input"
+            [(ngModel)]="newOrganizer.contactNumber"
+            name="contactNumber"
+            (input)="onContactNumberInput($event)"
+            maxlength="13"
+            title="Format: 0912-345-6789 (numbers only)"
+          />
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="btn-cancel" (click)="closeAddModal()">Cancel</button>
+          <button type="submit" class="btn-create" [disabled]="!organizerForm.form.valid || isSaving">{{ isSaving ? 'Saving...' : 'Save' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

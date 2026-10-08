@@ -1,0 +1,58 @@
+/* Layout comes from forgot-password.css; these are the verify-only bits */
+
+/* A little bigger than the Forgot Password card (that page keeps its own size) */
+.forgot-password-container {
+  max-width: 480px;
+  padding: 48px 56px;
+}
+
+.forgot-password-header h1 {
+  font-size: 34px;
+  margin-bottom: 12px;
+}
+
+.forgot-password-header p {
+  font-size: 17px;
+}
+
+.back-link {
+  font-size: 17px;
+}
+
+@media (max-width: 480px) {
+  .forgot-password-container {
+    padding: 30px 25px;
+  }
+}
+.verify-email-address {
+  overflow-wrap: anywhere;
+}
+
+.resend-line {
+  margin: 4px 0 18px;
+  text-align: center;
+  font-size: 15px;
+  color: #6c757d;
+}
+
+.resend-link {
+  color: #dc3545;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.resend-link:hover {
+  text-decoration: underline;
+}
+
+.resend-wait {
+  color: #9ca3af;
+}
+
+:host-context(body.dark-mode) .resend-line {
+  color: #b0b0b0;
+}
+
+:host-context(body.dark-mode) .resend-link {
+  color: #ff6b76;
+}

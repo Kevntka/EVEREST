@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dark-mode version of events-logo.svg: same mountains, light "EVENTS" text -->
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue mountain -->
+  <polygon points="60,130 100,70 140,130" fill="#4285F4" />
+
+  <!-- Gold mountain -->
+  <polygon points="100,130 140,80 180,130" fill="#FFB300" />
+
+  <!-- Text EVENTS -->
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#e0e0e0" text-anchor="middle">EVENTS</text>
+</svg>

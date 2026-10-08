@@ -1,0 +1,139 @@
+<div class="student-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">{{ roleLabel }}</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToProfile()">
+        <lucide-icon [img]="UserCircle" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Profile</span>
+      </button>
+      <button class="nav-item active">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">My Events</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">My Events</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ studentName | displayCase }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- My Events Content -->
+    <div class="page-content my-events-page">
+      <div class="my-events-toolbar">
+        <div class="search-box my-events-search">
+          <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+          <input
+            type="text"
+            placeholder="Search Event"
+            class="search-input"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearch()"
+          />
+        </div>
+      </div>
+
+      <div class="my-events-tabs" role="tablist">
+        <button type="button" class="tab" role="tab" [class.active]="activeTab === 'all'" (click)="setTab('all')">
+          All ({{ events.length }})
+        </button>
+        <button type="button" class="tab" role="tab" [class.active]="activeTab === 'completed'" (click)="setTab('completed')">
+          Completed ({{ completedCount }})
+        </button>
+      </div>
+
+      <div class="my-events-card">
+        <!-- Rows scroll here; the header row sticks and the pagination stays at the bottom -->
+        <div class="table-scroll">
+        <table class="my-events-table">
+          <thead>
+            <tr>
+              <th>Event Title</th>
+              <th>Schedule</th>
+              <th>Attendance</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (event of pagedEvents; track event.id) {
+              <tr>
+                <td class="event-title-cell">{{ event.title }}</td>
+                <td>{{ event.date ? (event.date | date: 'MMM d, y') : 'TBA' }} | {{ event.time }}</td>
+                <td>
+                  <span class="attendance-badge" [class.present]="event.attendance === 'present'" [class.pending]="event.attendance === 'pending'">
+                    {{ attendanceLabels[event.attendance] }}
+                  </span>
+                </td>
+                <td>
+                  <button type="button" class="btn-view-details" (click)="viewEventDetails(event)">View Details</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+          @if (loading) {
+            <div class="table-empty">Loading your events...</div>
+          } @else if (pagedEvents.length === 0) {
+            <div class="table-empty">
+              @if (events.length === 0) {
+                You haven't enrolled in any events yet.
+              } @else if (activeTab === 'completed' && !searchQuery) {
+                No completed events yet.
+              } @else {
+                No events match your search.
+              }
+            </div>
+          }
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="currentPage <= 1" (click)="prevPage()" aria-label="Previous page">&lt;</button>
+          <span class="pagination-info">{{ currentPage }} of {{ totalPages }}</span>
+          <button class="pagination-btn" [disabled]="currentPage >= totalPages" (click)="nextPage()" aria-label="Next page">&gt;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

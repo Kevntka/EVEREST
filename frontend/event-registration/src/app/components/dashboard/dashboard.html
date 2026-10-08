@@ -1,0 +1,167 @@
+<div class="admin-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">Administrator</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button type="button" class="nav-item active" aria-current="page">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToOrganizer()">
+        <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Organizer</span>
+      </button>
+      <button class="nav-item" (click)="goToStudents()">
+        <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Students</span>
+      </button>
+      <button class="nav-item" (click)="goToParticipants()">
+        <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Participants</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Dashboard</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">Administrator</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="page-content page-fill">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="UserCheck" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Total Users</h3>
+            <p class="stat-value">{{ totalUsers }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="CalendarCheck" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Total Events</h3>
+            <p class="stat-value">{{ totalEvents }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="CalendarX2" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Open Events</h3>
+            <p class="stat-value">{{ openEvents }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">
+            <lucide-icon [img]="CalendarX" [size]="32" [color]="'white'"></lucide-icon>
+          </div>
+          <div class="stat-info">
+            <h3 class="stat-title">Closed Events</h3>
+            <p class="stat-value">{{ closedEvents }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Events Table -->
+      <div class="table-container">
+        <h3 class="section-title">Events Created by Organizers</h3>
+        <div class="table-scroll">
+        <table class="events-table">
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Date</th>
+              <th>Venue</th>
+              <th>Capacity</th>
+              <th>Enrolled</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let event of pager.slice(events)">
+              <td>{{ event.event_name }}</td>
+              <td>{{ event.event_date }}</td>
+              <td>{{ event.venue }}</td>
+              <td>{{ event.capacity }}</td>
+              <td>{{ event.enrolled_count }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="'status-' + badgeStatus(event)">
+                  {{ badgeStatus(event) }}
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn view-btn" (click)="viewEvent(event.id)" aria-label="View event">
+                    <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    <span>View</span>
+                  </button>
+                  <button class="action-btn delete-btn" (click)="deleteEvent(event.id)" aria-label="Delete event">
+                    <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="events.length === 0">
+            No events to display
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(events)" (click)="pager.prev(events)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(events) }} of {{ pager.totalPages(events) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(events)" (click)="pager.next(events)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

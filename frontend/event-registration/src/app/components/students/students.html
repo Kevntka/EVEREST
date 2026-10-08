@@ -1,0 +1,188 @@
+<div class="admin-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">Administrator</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button class="nav-item" (click)="goToDashboard()">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToOrganizer()">
+        <lucide-icon [img]="User" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Organizer</span>
+      </button>
+      <button type="button" class="nav-item active" aria-current="page">
+        <lucide-icon [img]="GraduationCap" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Students</span>
+      </button>
+      <button class="nav-item" (click)="goToParticipants()">
+        <lucide-icon [img]="Users" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Participants</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+        <h2 class="page-title">Student</h2>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">Administrator</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content page-fill">
+      <!-- Search and Filter Bar -->
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="search-box">
+            <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+            <input 
+              type="text" 
+              placeholder="Search Name" 
+              class="search-input"
+              [(ngModel)]="searchName"
+              (ngModelChange)="filterStudents()"
+            />
+          </div>
+
+          <app-select class="department-select" [options]="departmentOptions" [(ngModel)]="selectedDepartment" (ngModelChange)="filterStudents()"></app-select>
+        </div>
+      </div>
+
+      <!-- Students Table -->
+      <div class="table-container">
+        <div class="table-scroll">
+        <table class="students-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Department</th>
+              <th>Gsuite</th>
+              <th>Gender</th>
+              <th>Number</th>
+              <th>Year Level</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let student of pager.slice(filteredStudents)">
+              <td>{{ student.full_name | displayCase }}</td>
+              <td>{{ student.department | displayCase }}</td>
+              <td>{{ student.email }}</td>
+              <td>{{ student.gender | displayCase }}</td>
+              <td>{{ student.contact_number }}</td>
+              <td>{{ student.year_level | displayCase }}</td>
+              <td>
+                <div class="action-buttons">
+                  <button class="action-btn view-btn" (click)="viewStudent(student)" aria-label="View student">
+                    <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    <span>View</span>
+                  </button>
+                  <button class="action-btn delete-btn" (click)="deleteStudent(student.id)" aria-label="Delete student">
+                    <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+          <div class="table-empty" *ngIf="filteredStudents.length === 0">
+            No students to display
+          </div>
+        </div>
+
+        <div class="table-pagination">
+          <button class="pagination-btn" [disabled]="pager.isFirst(filteredStudents)" (click)="pager.prev(filteredStudents)" aria-label="Previous page">
+            <span>&lt;</span>
+          </button>
+          <span class="pagination-info">{{ pager.current(filteredStudents) }} of {{ pager.totalPages(filteredStudents) }}</span>
+          <button class="pagination-btn" [disabled]="pager.isLast(filteredStudents)" (click)="pager.next(filteredStudents)" aria-label="Next page">
+            <span>&gt;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Student Modal -->
+  <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
+    <div class="modal-content details-modal" (click)="$event.stopPropagation()" *ngIf="selectedStudent">
+      <div class="details-header">
+        <div class="details-avatar">
+          @if (selectedStudent.avatar_url) {
+            <img [src]="'http://localhost:8000' + selectedStudent.avatar_url" alt="Profile picture" />
+          } @else {
+            {{ selectedStudent.full_name.charAt(0).toUpperCase() }}
+          }
+        </div>
+        <div class="details-identity">
+          <h2 class="details-name">{{ selectedStudent.full_name }}</h2>
+          <span class="details-role">Student</span>
+          <p class="details-email">
+            <lucide-icon [img]="Mail" [size]="14"></lucide-icon>{{ selectedStudent.email }}
+          </p>
+        </div>
+      </div>
+
+      <div class="details-list">
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="IdCard" [size]="16"></lucide-icon>SR Code</span>
+            <span class="details-value">{{ selectedStudent.sr_code || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Building2" [size]="16"></lucide-icon>Department</span>
+            <span class="details-value">{{ selectedStudent.department || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="BookOpen" [size]="16"></lucide-icon>Program</span>
+            <span class="details-value">{{ selectedStudent.program || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="GraduationCap" [size]="16"></lucide-icon>Year Level</span>
+            <span class="details-value">{{ selectedStudent.year_level || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="UserRound" [size]="16"></lucide-icon>Gender</span>
+            <span class="details-value">{{ selectedStudent.gender || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Phone" [size]="16"></lucide-icon>Contact Number</span>
+            <span class="details-value">{{ selectedStudent.contact_number || 'N/A' }}</span>
+          </div>
+      </div>
+
+      <button type="button" class="details-close" (click)="closeViewModal()">Close</button>
+    </div>
+  </div>
+</div>

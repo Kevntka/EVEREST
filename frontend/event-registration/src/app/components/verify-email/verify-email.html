@@ -1,0 +1,59 @@
+<div class="dark-mode-toggle" (click)="toggleDarkMode()">
+  <!-- Moon icon when in Light Mode (click to go Dark) -->
+  <svg class="dark-mode-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" *ngIf="!themeService.isDarkMode()">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+  </svg>
+  <!-- Sun icon when in Dark Mode (click to go Light) -->
+  <svg class="dark-mode-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" *ngIf="themeService.isDarkMode()">
+    <circle cx="12" cy="12" r="5"></circle>
+    <line x1="12" y1="1" x2="12" y2="3"></line>
+    <line x1="12" y1="21" x2="12" y2="23"></line>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+    <line x1="1" y1="12" x2="3" y2="12"></line>
+    <line x1="21" y1="12" x2="23" y2="12"></line>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+  </svg>
+  <span class="dark-mode-text">{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+</div>
+
+<div class="forgot-password-container">
+  @switch (state()) {
+    @case ('sent') {
+      <div class="forgot-password-header">
+        <h1>Verify Your Account</h1>
+        <p>We sent a verification link to <strong class="verify-email-address">{{ email }}</strong></p>
+        <p>Click <strong>Verify Account</strong> in the email to finish creating your account.</p>
+      </div>
+
+      <p class="resend-line">
+        Didn't get the email? Check your Spam folder, or
+        @if (resendIn() > 0) {
+          <span class="resend-wait">resend in {{ resendIn() }}s</span>
+        } @else {
+          <a class="resend-link" (click)="resendLink()">resend link</a>
+        }
+      </p>
+    }
+    @case ('verifying') {
+      <div class="forgot-password-header">
+        <h1>Verifying...</h1>
+        <p>Please wait while we verify your account.</p>
+      </div>
+    }
+    @case ('failed') {
+      <div class="forgot-password-header">
+        <h1>Verification Failed</h1>
+        <p>{{ message() }}</p>
+      </div>
+      @if (email) {
+        <button type="button" class="btn-confirm" [disabled]="resendIn() > 0" (click)="resendLink()">Send New Link</button>
+      }
+    }
+  }
+
+  <div class="back-link">
+    <a (click)="goToLogin()">← Back to Login</a>
+  </div>
+</div>

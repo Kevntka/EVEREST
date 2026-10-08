@@ -1,0 +1,163 @@
+<div class="student-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <img [src]="themeService.logoSrc()" alt="Events Logo" class="logo-img" />
+      </div>
+      <h3 class="admin-title">{{ roleLabel }}</h3>
+    </div>
+
+    <nav class="nav-menu">
+      <button type="button" class="nav-item active" aria-current="page">
+        <lucide-icon [img]="LayoutDashboard" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Dashboard</span>
+      </button>
+      <button class="nav-item" (click)="goToProfile()">
+        <lucide-icon [img]="UserCircle" class="nav-icon"></lucide-icon>
+        <span class="nav-text">Profile</span>
+      </button>
+      <button class="nav-item" (click)="goToMyEvents()">
+        <lucide-icon [img]="Calendar" class="nav-icon"></lucide-icon>
+        <span class="nav-text">My Events</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button class="menu-toggle" (click)="toggleSidebar()">
+          <lucide-icon [img]="Menu" [size]="24"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="user-menu" (clickOutside)="showDropdown = false">
+        <button class="user-dropdown" (click)="toggleDropdown()">
+          <lucide-icon [img]="User" [size]="20"></lucide-icon>
+          <span class="user-name">{{ studentName | displayCase }}</span>
+          <lucide-icon [img]="ChevronDown" [size]="16" class="dropdown-arrow-icon"></lucide-icon>
+        </button>
+
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="toggleDarkMode()">
+            <lucide-icon [img]="themeService.isDarkMode() ? Sun : Moon" [size]="18" class="theme-icon" [ngClass]="themeService.themeIconSpinClass()"></lucide-icon>
+            <span>{{ themeService.isDarkMode() ? 'Light Mode' : 'Dark Mode' }}</span>
+          </button>
+          <button class="dropdown-item" (click)="openChangePassword()">
+            <lucide-icon [img]="Key" [size]="18"></lucide-icon>
+            <span>Change Password</span>
+          </button>
+          <button class="dropdown-item" (click)="signOut()">
+            <lucide-icon [img]="LogOut" [size]="18"></lucide-icon>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <!-- split-scroll: on wide screens each column's event list scrolls on its own -->
+    <div class="page-content split-scroll">
+      <div class="content-grid">
+        <!-- Events Column (Left) -->
+        <div class="events-column">
+          <div class="section-header">
+            <h3 class="section-title">Events</h3>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-box">
+              <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+              <input 
+                type="text" 
+                placeholder="Search Event" 
+                class="search-input"
+                [(ngModel)]="searchQueryLeft"
+              />
+            </div>
+
+            <app-select class="status-select" [options]="statusOptions" [(ngModel)]="selectedStatusLeft"></app-select>
+          </div>
+
+          <div class="events-list">
+            <div class="event-card" *ngFor="let event of filteredEvents">
+              <div class="event-image" [style.background]="event.coverPhoto ? null : coverColor(event.title)">
+                <img *ngIf="event.coverPhoto" [src]="event.coverPhoto" [alt]="event.title" />
+                <span *ngIf="!event.coverPhoto" class="event-image-placeholder">{{ coverInitial(event.title) }}</span>
+              </div>
+              <div class="event-info">
+                <h4 class="event-title">{{ event.title }}</h4>
+                <p class="event-detail">{{ event.date }} | {{ event.time }}</p>
+                <p class="event-detail">{{ event.venue }}</p>
+                <p class="event-detail">{{ event.availableSlots }} Available Slot</p>
+              </div>
+              <div class="event-actions">
+                <span class="status-badge" [class]="'status-' + badgeStatus(event)">
+                  {{ badgeStatus(event) }}
+                </span>
+                <button class="btn-view-details" (click)="viewEventDetails(event)">
+                  View Details
+                </button>
+              </div>
+            </div>
+
+            <div class="empty-state" *ngIf="filteredEvents.length === 0">
+              <p>No events available</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Events Column (Right) -->
+        <div class="events-column">
+          <div class="section-header">
+            <h3 class="section-title">Upcoming Events</h3>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-box">
+              <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+              <input 
+                type="text" 
+                placeholder="Search Event" 
+                class="search-input"
+                [(ngModel)]="searchQueryRight"
+              />
+            </div>
+          </div>
+
+          <div class="events-list">
+            <div class="event-card" *ngFor="let event of filteredUpcomingEvents">
+              <div class="event-image" [style.background]="event.coverPhoto ? null : coverColor(event.title)">
+                <img *ngIf="event.coverPhoto" [src]="event.coverPhoto" [alt]="event.title" />
+                <span *ngIf="!event.coverPhoto" class="event-image-placeholder">{{ coverInitial(event.title) }}</span>
+              </div>
+              <div class="event-info">
+                <h4 class="event-title">{{ event.title }}</h4>
+                <p class="event-detail">{{ event.date }} | {{ event.time }}</p>
+                <p class="event-detail">{{ event.venue }}</p>
+                <p class="event-detail">{{ event.availableSlots }} Available Slot</p>
+                <p class="event-detail registration-opens">Registration opens {{ formatShortDate(event.opensOn) }}</p>
+              </div>
+              <div class="event-actions">
+                <span class="status-badge" [class]="'status-' + badgeStatus(event, true)">
+                  {{ badgeStatus(event, true) }}
+                </span>
+                <button class="btn-view-details" (click)="viewEventDetails(event)">
+                  View Details
+                </button>
+              </div>
+            </div>
+
+            <div class="empty-state" *ngIf="filteredUpcomingEvents.length === 0">
+              <p>No upcoming events</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

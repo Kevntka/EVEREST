@@ -1,0 +1,616 @@
+/* Admin Dashboard Container */
+.admin-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  background-color: #f8f9fa;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background-color: #ffffff;
+  border-right: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  transition: margin-left 0.3s ease;
+  z-index: 10;
+}
+
+.sidebar.closed {
+  margin-left: -220px;
+}
+
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 20px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.logo-circle {
+  width:  115px;
+  height: 115px;
+  border-radius: 50%;
+  background-color: #eceef1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  overflow: hidden;
+  
+}
+
+.logo-img {
+  width: 70%; 
+  height: 70%;
+  margin-left: -6px;
+  margin-top: -20px;
+  object-fit: contain;
+}
+
+.admin-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+  margin: 0;
+  text-align: center;
+}
+
+/* Navigation Menu */
+.nav-menu {
+  flex: 1;
+  padding: 20px 15px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  margin-bottom: 4px;
+  text-decoration: none;
+  color: #6c757d;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+}
+
+.nav-item:hover {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.nav-item.active {
+  background-color: #e7f5e9;
+  color: #28a745;
+  font-weight: 500;
+}
+
+.nav-icon {
+  margin-right: 12px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-icon ::ng-deep svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-text {
+  font-size: 14px;
+}
+
+/* Participants Section (bottom of sidebar) */
+.participants-section {
+  padding: 15px;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Top Bar */
+.top-bar {
+  height: 70px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #212529;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+}
+
+.menu-toggle:hover {
+  background-color: #f8f9fa;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+/* User Menu */
+.user-menu {
+  position: relative;
+}
+
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.user-dropdown:hover {
+  background-color: #f8f9fa;
+}
+
+.user-dropdown lucide-icon {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.dropdown-arrow-icon {
+  color: #6c757d;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 14px;
+  color: #212529;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item lucide-icon {
+  display: flex;
+  align-items: center;
+  color: #6c757d;
+}
+
+/* Page Content */
+.page-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #ff8a80 0%, #ff6b6b 100%);
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-icon lucide-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d2d2d;
+  margin: 0 0 8px 0;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #000000;
+  margin: 0;
+  line-height: 1;
+}
+
+/* Table Container */
+.table-container {
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+}
+
+/* 7 equal-width columns; the 1200px minimum keeps each column (~171px) wide enough
+   for the hover-expanded View/Delete buttons without shifting the table */
+.events-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+  table-layout: fixed;
+}
+
+.events-table th {
+  width: calc(100% / 7);
+}
+
+.events-table td {
+  overflow-wrap: anywhere;
+}
+
+.events-table thead {
+  background-color: transparent;
+}
+
+.events-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.events-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.events-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.events-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.events-table td {
+  padding: 16px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.empty-state {
+  text-align: center;
+  color: #adb5bd;
+  padding: 60px !important;
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* Table Pagination */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* minmax(0, 1fr): cards shrink to the screen instead of growing to fit long labels */
+  .stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-info {
+    min-width: 0;
+  }
+
+  .stat-title {
+    overflow-wrap: break-word;
+  }
+
+  .top-bar {
+    padding: 0 15px;
+  }
+
+  .page-content {
+    padding: 20px;
+  }
+
+  .events-table {
+    font-size: 12px;
+  }
+
+  .events-table th,
+  .events-table td {
+    padding: 10px;
+  }
+}
+
+
+/* Section Title */
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+}
+
+:host-context(body.dark-mode) .section-title {
+  color: #f3f4f6;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: capitalize;
+  /* One fixed width for Open / Full / Upcoming / Closed (fits the longest, "Upcoming") */
+  width: 96px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Same badges on admin Dashboard, Organizer Events and the student dashboard */
+.status-open {
+  background-color: rgba(52, 211, 153, 0.2);
+  color: #10b981;
+}
+
+.status-closed,
+.status-full {
+  background-color: rgba(248, 113, 113, 0.2);
+  color: #ef4444;
+}
+
+.status-upcoming {
+  background-color: rgba(96, 165, 250, 0.2);
+  color: #3b82f6;
+}
+
+:host-context(body.dark-mode) .status-upcoming {
+  color: #60a5fa;
+}
+
+.status-cancelled {
+  background-color: rgba(156, 163, 175, 0.2);
+  color: #6b7280;
+}
+
+:host-context(body.dark-mode) .status-cancelled {
+  color: #9ca3af;
+}
+
+/* Action buttons: same icon-only buttons with slide-out labels as the other admin tables */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 140px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  box-sizing: border-box;
+  padding: 6px;
+  width: 36px;
+  min-width: 36px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.action-btn lucide-icon {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.action-btn span {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(8px);
+  transition: max-width 0.2s ease, opacity 0.15s ease, transform 0.2s ease;
+}
+
+.action-btn:hover,
+.action-btn:focus-visible {
+  justify-content: flex-start;
+  width: 88px;
+  min-width: 88px;
+  gap: 6px;
+}
+
+.action-btn:hover span,
+.action-btn:focus-visible span {
+  max-width: 48px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.view-btn {
+  background-color: #dbe4ee;
+  border: 1px solid rgba(154, 170, 189, 0.45);
+  color: #4b5563;
+  opacity: 0.75;
+}
+
+.view-btn:hover,
+.view-btn:focus-visible {
+  background-color: #c4d0dd;
+  opacity: 1;
+}
+
+.delete-btn {
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  opacity: 0.75;
+}
+
+.delete-btn:hover,
+.delete-btn:focus-visible {
+  background-color: #fecaca;
+  opacity: 1;
+}
+
+:host-context(body.dark-mode) .view-btn {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .view-btn:hover {
+  background-color: #4b5563;
+}
+
+:host-context(body.dark-mode) .delete-btn {
+  background-color: #7f1d1d;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+:host-context(body.dark-mode) .delete-btn:hover {
+  background-color: #991b1b;
+  border-color: #b91c1c;
+}
+
+/* Dark mode (host-context needed to beat encapsulated component styles) */
+:host-context(body.dark-mode) .events-table th,
+:host-context(body.dark-mode) .events-table td,
+:host-context(body.dark-mode) .empty-state {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .events-table tbody tr:hover {
+  background-color: #3a3a3a;
+}
+
+/* Very narrow: icon above the text so labels like "Participants" stay whole */
+@media (max-width: 480px) {
+  .stat-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
