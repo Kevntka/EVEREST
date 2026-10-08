@@ -67,17 +67,23 @@ async def _send(to_email: str, subject: str, text_content: str, html_content: st
     message.attach(MIMEText(text_content, "plain"))
     message.attach(MIMEText(html_content, "html"))
 
+    smtp_options = dict(
+        hostname=SMTP_HOST,
+        port=SMTP_PORT,
+        use_tls=SMTP_USE_SSL,
+        start_tls=not SMTP_USE_SSL,
+        username=SMTP_USER,
+        password=SMTP_PASSWORD,
+    )
     try:
         print(f"      ├─ Connecting to {SMTP_HOST}:{SMTP_PORT} ({'SSL' if SMTP_USE_SSL else 'STARTTLS'}) as {SMTP_USER}")
-        await aiosmtplib.send(
-            message,
-            hostname=SMTP_HOST,
-            port=SMTP_PORT,
-            use_tls=SMTP_USE_SSL,
-            start_tls=not SMTP_USE_SSL,
-            username=SMTP_USER,
-            password=SMTP_PASSWORD,
-        )
+        try:
+            # IPv4 first: on networks with broken IPv6, connecting to Gmail's IPv6 address
+            # first waits for a timeout (about 25 s instead of 4 s)
+            await aiosmtplib.send(message, **smtp_options, source_address=("0.0.0.0", 0), timeout=20)
+        except (aiosmtplib.SMTPConnectError, aiosmtplib.SMTPConnectTimeoutError, OSError):
+            print("      ├─ IPv4 connection failed, trying again with any address")
+            await aiosmtplib.send(message, **smtp_options)
         print(f"      └─ ✅ Email accepted by SMTP server for {to_email}")
         return True
     except Exception as e:

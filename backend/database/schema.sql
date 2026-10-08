@@ -135,9 +135,8 @@ CREATE INDEX idx_registrations_user_id ON registrations(user_id);
 CREATE INDEX idx_attendees_registration ON attendees(registration_id);
 CREATE INDEX idx_attendees_department ON attendees(department_id);
 
--- Insert default admin user
-INSERT INTO users (email, password, full_name, role, is_active) 
-VALUES ('admin@everest.com', 'admin123', 'Administrator', 'admin', TRUE);
+-- No default admin: passwords must be stored as bcrypt hashes, never as plain text.
+-- Create the first admin with:  python create_admin.py  (run from backend/)
 
 -- Insert sample departments
 INSERT INTO departments (department_name) VALUES

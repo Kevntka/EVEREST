@@ -8,6 +8,7 @@ from security.settings import ALLOWED_ORIGINS, ENABLE_API_DOCS
 from security.csrf import CSRFMiddleware
 from security.headers import SecurityHeadersMiddleware
 from security.rate_limit import RateLimitMiddleware
+from security.errors import ServerErrorMiddleware
 
 app = FastAPI(
     title="EVEREST Event Registration API",
@@ -20,7 +21,9 @@ app = FastAPI(
 
 # Middleware runs from the last one added to the first. CORS is added last so it
 # wraps everything: even a 403 (CSRF) or 429 (rate limit) carries the CORS headers
-# the browser needs to show the error message.
+# the browser needs to show the error message. ServerErrorMiddleware is added first
+# (innermost) so an unexpected error becomes a JSON 500 that still gets CORS headers.
+app.add_middleware(ServerErrorMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)

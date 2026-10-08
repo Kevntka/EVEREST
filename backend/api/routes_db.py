@@ -219,9 +219,9 @@ async def _start_pending_registration(
     employment_id = validate.text(employment_id, "Employment ID", 50, required=role == "organizer")
 
     if db.query(User).filter(User.email == email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Email already registered")
     if employment_id and db.query(UserRole).filter(UserRole.employment_id == employment_id).first():
-        raise HTTPException(status_code=400, detail="Employment ID already exists")
+        raise HTTPException(status_code=409, detail="Employment ID already exists")
 
     # Drop abandoned sign-ups
     db.execute(text(f"""
@@ -882,15 +882,17 @@ async def create_event(
         raise HTTPException(status_code=500, detail="Error creating event. Please try again.")
 
 
-@router.get("/events", dependencies=[Depends(current_user)])
-def get_events(db: Session = Depends(get_db)):
+@router.get("/events")
+def get_events(user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
-    Get all events
+    All events for admins, students and participants. An organizer gets only the
+    events they created (their Events page).
     """
     from sqlalchemy import text
     _close_finished_events(db)
-    
-    query = text("""
+
+    only_mine = user.role == "organizer"
+    query = text(f"""
         SELECT 
             e.id, e.event_name, e.event_description,
             e.event_date, e.event_time, e.venue, e.capacity,
@@ -899,12 +901,13 @@ def get_events(db: Session = Depends(get_db)):
             e.department, e.about_event, e.event_end_time, e.registration_start, e.registration_end
         FROM events e
         LEFT JOIN registrations r ON e.id = r.event_id
+        {"WHERE e.user_role_id IN (SELECT id FROM user_roles WHERE user_id = :uid AND role_type = 'organizer')" if only_mine else ""}
         GROUP BY e.id
         ORDER BY e.created_at DESC
     """)
-    
+
     try:
-        result = db.execute(query)
+        result = db.execute(query, {"uid": user.id} if only_mine else {})
         events = []
         
         for row in result:
@@ -1030,10 +1033,12 @@ def get_organizer_stats(organizer: User = Depends(organizer_only), db: Session =
                -- open for enrolling now: not upcoming (registration started) and not past the registration end
                (e.status = 'open'
                 AND COALESCE(e.registration_start, e.event_date, CURRENT_DATE) <= CURRENT_DATE
-                AND (e.registration_end IS NULL OR e.registration_end >= CURRENT_DATE)) AS enrolling
+                AND (e.registration_end IS NULL OR e.registration_end >= CURRENT_DATE)) AS enrolling,
+               COUNT(a.id) FILTER (WHERE a.attendance_status = 'present') AS present
         FROM events e
         JOIN user_roles ur ON ur.id = e.user_role_id
         LEFT JOIN registrations r ON r.event_id = e.id
+        LEFT JOIN attendees a ON a.registration_id = r.id
         WHERE ur.user_id = :organizer_id AND ur.role_type = 'organizer'
         GROUP BY e.id
         ORDER BY e.created_at DESC
@@ -1073,7 +1078,8 @@ def get_organizer_stats(organizer: User = Depends(organizer_only), db: Session =
             "openEvents": sum(1 for e in events if e[5])
         },
         "enrollmentData": [
-            {"eventName": e[1], "enrolled": e[4], "capacity": e[2] or 0}
+            # present: for the Attendance Summary's per-event filter
+            {"eventId": e[0], "eventName": e[1], "enrolled": e[4], "capacity": e[2] or 0, "present": e[6] or 0}
             for e in events
         ],
         "attendanceData": {
@@ -1341,7 +1347,7 @@ async def enroll_event(
     ).first()
 
     if existing:
-        raise HTTPException(status_code=400, detail="Already enrolled in this event")
+        raise HTTPException(status_code=409, detail="Already enrolled in this event")
 
     # Enroll
     try:
@@ -1360,7 +1366,7 @@ async def enroll_event(
     except IntegrityError:
         # UNIQUE(event_id, user_id): a second click got here at the same time
         db.rollback()
-        raise HTTPException(status_code=400, detail="Already enrolled in this event")
+        raise HTTPException(status_code=409, detail="Already enrolled in this event")
     except Exception as e:
         db.rollback()
         print(f"Error enrolling: {e}")
@@ -1399,14 +1405,14 @@ def update_organizer(
     department = validate.text(department, "Department", 150)
     contact_number = validate.contact_number(contact_number)
     if db.query(User).filter(User.email == email, User.id != organizer_id).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Email already registered")
 
     employment_id = validate.text(employment_id, "Employment ID", 50)
     duplicate_id = db.query(UserRole).filter(
         UserRole.employment_id == employment_id, UserRole.user_id != organizer_id
     ).first()
     if duplicate_id:
-        raise HTTPException(status_code=400, detail="Employment ID already exists")
+        raise HTTPException(status_code=409, detail="Employment ID already exists")
 
     user_role = db.query(UserRole).filter(
         UserRole.user_id == organizer_id, UserRole.role_type == 'organizer'
@@ -1425,8 +1431,15 @@ def update_organizer(
     return {"success": True, "message": "Organizer updated successfully"}
 
 
-@router.post("/change-password", dependencies=[Depends(reset_email_limit)])
-async def request_change_password_link(user: User = Depends(current_user), db: Session = Depends(get_db)):
+def _logged_in_then_email_limit(request: Request, user: User = Depends(current_user)) -> User:
+    """Check the login first (401), then count the request toward the email limit (429).
+    In the route's `dependencies=[...]` the limit ran first, so a logged-out request got 429."""
+    reset_email_limit(request)
+    return user
+
+
+@router.post("/change-password")
+async def request_change_password_link(user: User = Depends(_logged_in_then_email_limit), db: Session = Depends(get_db)):
     """
     Change Password for a logged-in user: email a Set New Password link to the
     email of the account in the login cookie (never an address sent by the client)
@@ -1593,11 +1606,14 @@ async def upload_profile_avatar(avatar: UploadFile = File(...), user: User = Dep
     return {"success": True, "message": "Profile picture updated", "avatarUrl": f"/api/users/{user.id}/avatar"}
 
 
-@router.get("/users/{user_id}/avatar", dependencies=[Depends(current_user)])
-def get_user_avatar(user_id: int, db: Session = Depends(get_db)):
+@router.get("/users/{user_id}/avatar")
+def get_user_avatar(user_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
-    Serve a user's profile picture from the database
+    Serve a user's profile picture from the database: only to that user (Profile page)
+    and to admins (Students / Participants View). Anyone else gets 404, so ids can't be probed.
     """
+    if user.id != user_id and user.role != "admin":
+        raise HTTPException(status_code=404, detail="Profile picture not found")
     row = db.query(UserRole.avatar_data, UserRole.avatar_type).filter(
         UserRole.user_id == user_id, UserRole.avatar_data.isnot(None)
     ).first()
@@ -1767,7 +1783,7 @@ async def resend_verification(email: str = Form(...), db: Session = Depends(get_
 
     if not pending:
         if db.query(User).filter(User.email == email).first():
-            raise HTTPException(status_code=400, detail="This email is already verified. You can log in.")
+            raise HTTPException(status_code=409, detail="This email is already verified. You can log in.")
         raise HTTPException(status_code=404, detail="No pending registration for this email. Please register again.")
 
     if pending.seconds_since is not None and pending.seconds_since < VERIFICATION_RESEND_SECONDS:
