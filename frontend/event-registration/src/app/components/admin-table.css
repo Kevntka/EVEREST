@@ -1,0 +1,287 @@
+/* Shared by the admin table pages (Dashboard, Organizer, Students, Participants), listed
+   after each page's own CSS in styleUrls: the row action buttons (View / Edit / Delete)
+   and the Edit modal (its .edit-modal rules win over the page's .modal-content).
+   Action buttons are defined only here. */
+.edit-modal {
+  max-width: 560px;
+  padding: 24px 28px;
+}
+
+.edit-modal .modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0 0 18px 0;
+  text-align: center;
+}
+
+.edit-modal .modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.edit-modal .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.edit-modal .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.edit-modal .form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0;
+}
+
+.edit-modal .required {
+  color: #ff6b6b;
+}
+
+.edit-modal .form-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  padding: 10px 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #495057;
+  background-color: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+}
+
+.edit-modal .form-input:focus {
+  outline: none;
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15);
+}
+
+.edit-modal .modal-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.edit-modal .btn-cancel {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-modal .btn-cancel:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.edit-modal .btn-create {
+  flex: 1;
+  padding: 12px;
+  background-color: #dc3545;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.edit-modal .btn-create:hover {
+  background-color: #c82333;
+}
+
+.edit-modal .btn-create:disabled {
+  background-color: #f5c6cb;
+  cursor: not-allowed;
+}
+
+@media (max-width: 576px) {
+  .edit-modal .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dark mode */
+:host-context(body.dark-mode) .edit-modal {
+  background-color: #2d2d2d;
+  color-scheme: dark;
+}
+
+:host-context(body.dark-mode) .edit-modal .modal-title,
+:host-context(body.dark-mode) .edit-modal .form-label {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .edit-modal .form-input {
+  background-color: #1a1a1a;
+  border-color: #404040;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .edit-modal .btn-cancel {
+  color: #d1d5db;
+  border-color: #4b5563;
+}
+
+:host-context(body.dark-mode) .edit-modal .btn-cancel:hover {
+  background-color: #374151;
+  border-color: #6b7280;
+}
+
+/* ---------- Row action buttons: icon-only, label slides out on hover ---------- */
+/* Action column: fixed wide enough for View, Edit and Delete with one hover-expanded,
+   so hovering doesn't shift the table; the other columns share the rest */
+.table-scroll > table th:last-child {
+  width: 212px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 180px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  box-sizing: border-box;
+  padding: 6px;
+  width: 36px;
+  min-width: 36px;
+  height: 32px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.action-btn lucide-icon {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: inherit;
+}
+
+.action-btn span {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(8px);
+  transition: max-width 0.2s ease, opacity 0.15s ease, transform 0.2s ease;
+}
+
+.action-btn:hover,
+.action-btn:focus-visible {
+  justify-content: flex-start;
+  width: 88px;
+  min-width: 88px;
+  gap: 6px;
+}
+
+.action-btn:hover span,
+.action-btn:focus-visible span {
+  max-width: 48px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Original admin colors: View and Edit gray-blue, Delete light red */
+.view-btn,
+.edit-btn {
+  background-color: #dbe4ee;
+  border-color: rgba(154, 170, 189, 0.45);
+  color: #4b5563;
+  opacity: 0.75;
+}
+
+.view-btn:hover,
+.view-btn:focus-visible,
+.edit-btn:hover,
+.edit-btn:focus-visible {
+  background-color: #c4d0dd;
+  opacity: 1;
+}
+
+.view-btn lucide-icon,
+.edit-btn lucide-icon {
+  color: #6b7280;
+}
+
+.delete-btn {
+  background-color: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+  opacity: 0.75;
+}
+
+.delete-btn:hover,
+.delete-btn:focus-visible {
+  background-color: #fecaca;
+  opacity: 1;
+}
+
+.delete-btn lucide-icon {
+  color: #dc2626;
+}
+
+:host-context(body.dark-mode) .view-btn,
+:host-context(body.dark-mode) .edit-btn {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .view-btn:hover,
+:host-context(body.dark-mode) .view-btn:focus-visible,
+:host-context(body.dark-mode) .edit-btn:hover,
+:host-context(body.dark-mode) .edit-btn:focus-visible {
+  background-color: #4b5563;
+}
+
+:host-context(body.dark-mode) .view-btn lucide-icon,
+:host-context(body.dark-mode) .edit-btn lucide-icon {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .delete-btn {
+  background-color: #7f1d1d;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+:host-context(body.dark-mode) .delete-btn:hover,
+:host-context(body.dark-mode) .delete-btn:focus-visible {
+  background-color: #991b1b;
+  border-color: #b91c1c;
+}
+
+:host-context(body.dark-mode) .delete-btn lucide-icon {
+  color: #fca5a5;
+}

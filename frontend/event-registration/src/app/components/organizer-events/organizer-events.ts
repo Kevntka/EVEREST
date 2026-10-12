@@ -17,6 +17,14 @@ import {
   Search,
   Plus,
   Edit,
+  Eye,
+  MapPin,
+  FileText,
+  Info,
+  CalendarRange,
+  Clock,
+  Users,
+  Building2,
   Trash2,
   Key,
   UserCheck,
@@ -28,11 +36,14 @@ import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { shrinkImage } from '../../utils/image-resize';
+import { formatTimeRange } from '../../utils/event-time';
+import { coverInitial, coverColor } from '../../utils/cover-placeholder';
 import { ChangePasswordService } from '../../services/change-password.service';
 
 import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { matchesSearch } from '../../utils/search';
 import { displayStatus, registrationOpensOn } from '../../utils/registration';
 export interface Event {
   id: number;
@@ -123,6 +134,14 @@ export class OrganizerEvents implements OnInit {
   readonly Search = Search;
   readonly Plus = Plus;
   readonly Edit = Edit;
+  readonly Eye = Eye;
+  readonly MapPin = MapPin;
+  readonly FileText = FileText;
+  readonly Info = Info;
+  readonly CalendarRange = CalendarRange;
+  readonly Clock = Clock;
+  readonly Users = Users;
+  readonly Building2 = Building2;
   readonly Trash2 = Trash2;
   readonly Key = Key;
   readonly UserCheck = UserCheck;
@@ -132,6 +151,7 @@ export class OrganizerEvents implements OnInit {
   attendanceEvent: Event | null = null;
   attendees: Attendee[] = [];
   attendeesLoading = false;
+  attendeeQuery = '';  // Attendance modal search
 
   constructor(
     private router: Router, 
@@ -150,9 +170,9 @@ export class OrganizerEvents implements OnInit {
 
   get filteredEvents(): Event[] {
     return this.events.filter(event => {
-      const matchesSearch = event.title.toLowerCase().includes(this.searchQuery.toLowerCase());
+      const matchesQuery = matchesSearch(event.title, this.searchQuery);
       const matchesStatus = !this.selectedStatus || event.status.toLowerCase() === this.selectedStatus.toLowerCase();
-      return matchesSearch && matchesStatus;
+      return matchesQuery && matchesStatus;
     });
   }
 
@@ -209,6 +229,7 @@ export class OrganizerEvents implements OnInit {
   openAttendance(event: Event): void {
     this.attendanceEvent = event;
     this.attendees = [];
+    this.attendeeQuery = '';
     this.attendancePager.page = 1;
     this.attendeesLoading = true;
     // Everyone who enrolled in this event (the backend filters by event_id)
@@ -226,6 +247,13 @@ export class OrganizerEvents implements OnInit {
   }
 
   @HostListener('document:keydown.escape')
+  /** Attendees matching the Attendance search (name, email, role, gender or number). */
+  get filteredAttendees(): Attendee[] {
+    return this.attendees.filter(a =>
+      [a.name, a.email, a.type, a.gender, a.contactNumber].some(v => matchesSearch(v, this.attendeeQuery))
+    );
+  }
+
   closeAttendance(): void {
     this.attendanceEvent = null;
   }
@@ -392,6 +420,38 @@ export class OrganizerEvents implements OnInit {
       }
     });
   }
+
+  /** View modal: only what the organizer entered in the Create Event form (from GET /api/events/{id}) */
+  viewedEvent: any = null;
+
+  viewEvent(eventId: number): void {
+    this.http.get<any>(`http://localhost:8000/api/events/${eventId}`)
+      .subscribe({
+        next: (response) => {
+          this.viewedEvent = response.event;
+        },
+        error: (error) => {
+          console.error('Error loading event:', error);
+          this.dialog.error('Something went wrong', error.error?.detail || 'Could not load the event.');
+        }
+      });
+  }
+
+  @HostListener('document:keydown.escape')
+  closeView(): void {
+    this.viewedEvent = null;
+  }
+
+  /** '2026-10-12' -> 'October 12, 2026' (empty when not set) */
+  formatDate(value: string | null | undefined): string {
+    if (!value) return '';
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  readonly formatTimeRange = formatTimeRange;
+  readonly coverInitial = coverInitial;
+  readonly coverColor = coverColor;
 
   editEvent(event: Event): void {
     // Load the full event so the form starts with its current values

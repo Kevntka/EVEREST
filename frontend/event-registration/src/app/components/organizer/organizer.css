@@ -26,7 +26,6 @@
   margin-left: -220px;
 }
 
-
 .logo-section {
   display: flex;
   flex-direction: column;
@@ -362,17 +361,12 @@
   overflow-x: auto;
 }
 
-/* 6 equal-width columns; the 1080px minimum keeps each column (180px) wide enough
-   for the hover-expanded action buttons without shifting the table */
+/* The Action column's width is set in admin-table.css; the other columns share the rest */
 .organizers-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 1080px;
   table-layout: fixed;
-}
-
-.organizers-table th {
-  width: calc(100% / 6);
 }
 
 .organizers-table td {
@@ -482,7 +476,6 @@
     padding: 10px;
   }
 }
-
 
 /* Modal Overlay */
 .modal-overlay {
@@ -634,133 +627,6 @@
   }
 }
 
-
-/* Action Buttons */
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  min-width: 130px;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  box-sizing: border-box;
-  padding: 6px;
-  width: 36px;
-  min-width: 36px;
-  flex: 0 0 auto;
-  overflow: hidden;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-.action-btn lucide-icon {
-  display: flex;
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-}
-
-.action-btn span {
-  display: inline-flex;
-  align-items: center;
-  height: 16px;
-  line-height: 16px;
-  text-align: left;
-  max-width: 0;
-  margin-left: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateX(8px);
-  transition: max-width 0.2s ease, margin-left 0.2s ease,
-    opacity 0.15s ease, transform 0.2s ease;
-}
-
-.action-btn:hover,
-.action-btn:focus-visible {
-  justify-content: flex-start;
-  width: 84px;
-  min-width: 84px;
-  gap: 6px;
-}
-
-.action-btn:hover span,
-.action-btn:focus-visible span {
-  max-width: 44px;
-  margin-left: 0;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.edit-btn:hover,
-.edit-btn:focus-visible {
-  width: 74px;
-  min-width: 74px;
-}
-
-.edit-btn {
-  background-color: #dbe4ee;
-  border: 1px solid rgba(154, 170, 189, 0.45);
-  color: #4b5563;
-  opacity: 0.75;
-}
-
-.edit-btn:hover {
-  background-color: #c4d0dd;
-  opacity: 1;
-}
-
-.edit-btn lucide-icon {
-  color: #6b7280;
-}
-
-.delete-btn {
-  background-color: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
-  opacity: 0.75;
-}
-
-.delete-btn:hover {
-  background-color: #fecaca;
-  opacity: 1;
-}
-
-.delete-btn lucide-icon {
-  color: #dc2626;
-}
-
-/* Dark Mode - Action Buttons */
-body.dark-mode .edit-btn {
-  background-color: #374151;
-  color: #d1d5db;
-}
-
-body.dark-mode .edit-btn:hover {
-  background-color: #4b5563;
-}
-
-body.dark-mode .delete-btn {
-  background-color: transparent;
-  color: #ef4444;
-}
-
-body.dark-mode .delete-btn:hover {
-  background-color: #7f1d1d;
-}
-
-
 /* Form validation styles */
 .form-input:invalid:not(:placeholder-shown) {
   border-color: #ff6b6b;
@@ -811,39 +677,168 @@ body.dark-mode .delete-btn:hover {
   color: #ffffff;
 }
 
-:host-context(body.dark-mode) .edit-btn {
-  background-color: #374151;
-  border-color: #4b5563;
-  color: #ffffff;
-}
-
-:host-context(body.dark-mode) .edit-btn:hover {
-  background-color: #4b5563;
-}
-
-:host-context(body.dark-mode) .edit-btn lucide-icon {
-  color: #ffffff;
-}
-
-:host-context(body.dark-mode) .delete-btn {
-  background-color: #7f1d1d;
-  border-color: #991b1b;
-  color: #fca5a5;
-}
-
-:host-context(body.dark-mode) .delete-btn:hover {
-  background-color: #991b1b;
-  border-color: #b91c1c;
-}
-
-:host-context(body.dark-mode) .delete-btn lucide-icon {
-  color: #fca5a5;
-}
-
 :host-context(body.dark-mode) .organizers-table tbody tr:hover {
   background-color: #3a3a3a;
 }
 
 :host-context(body.dark-mode) .organizers-table tbody tr:hover td {
   color: #ffffff;
+}
+
+/* Read-only details view (View button) */
+.details-modal {
+  max-width: 460px;
+  padding: 28px;
+}
+
+.details-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.details-avatar {
+  width: 68px;
+  height: 68px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #dc3545;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.details-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.details-identity {
+  min-width: 0;
+}
+
+.details-name {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #212529;
+  overflow-wrap: anywhere;
+}
+
+.details-role {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.details-email {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #6c757d;
+  overflow-wrap: anywhere;
+}
+
+.details-email lucide-icon,
+.details-label lucide-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.details-list {
+  padding: 8px 0;
+}
+
+.details-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.details-row:last-child {
+  border-bottom: none;
+}
+
+.details-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.details-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.details-close {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
+  border: none;
+  border-radius: 6px;
+  background-color: #dcdcdc;
+  color: #444444;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.details-close:hover {
+  background-color: #c9c9c9;
+}
+
+:host-context(body.dark-mode) .details-modal {
+  background-color: #2d2d2d;
+}
+
+:host-context(body.dark-mode) .details-header,
+:host-context(body.dark-mode) .details-row {
+  border-color: #404040;
+}
+
+:host-context(body.dark-mode) .details-name,
+:host-context(body.dark-mode) .details-value {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .details-email,
+:host-context(body.dark-mode) .details-label {
+  color: #b0b0b0;
+}
+
+:host-context(body.dark-mode) .details-role {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #ff8a93;
+}
+
+:host-context(body.dark-mode) .details-close {
+  background-color: #4b5563;
+  color: #f3f4f6;
+}
+
+:host-context(body.dark-mode) .details-close:hover {
+  background-color: #5b6573;
 }

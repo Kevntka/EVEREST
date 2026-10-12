@@ -4,13 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, Building2, Phone, UserRound, IdCard, BookOpen } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Edit, Trash2, Mail, Building2, Phone, UserRound, IdCard, BookOpen } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 
+import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { matchesSearch } from '../../utils/search';
 import { DisplayCasePipe, displayCase } from '../../utils/display-case.pipe';
 export interface Student {
   id: number;
@@ -25,6 +27,11 @@ export interface Student {
   avatar_url?: string;  // '/api/users/{id}/avatar', or '' without a picture
 }
 
+/** 'N/A' (the list's placeholder for an empty field) -> '' for the Edit form. */
+function formValue(value: string | null | undefined): string {
+  return value && value !== 'N/A' ? value : '';
+}
+
 /**
  * Students Component
  * Manage students with search and filter capabilities
@@ -34,7 +41,7 @@ export interface Student {
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe, SelectComponent],
   templateUrl: './students.html',
-  styleUrl: './students.css'
+  styleUrls: ['./students.css', '../admin-table.css']
 })
 export class Students implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
@@ -79,6 +86,14 @@ export class Students implements OnInit {
   readonly Phone = Phone;
   readonly UserRound = UserRound;
   readonly Trash2 = Trash2;
+  readonly Edit = Edit;
+
+  // Edit modal (admin): same fields and checks as the student's own Profile page
+  readonly yearLevelOptions: SelectOption[] = ['1ST YEAR', '2ND YEAR', '3RD YEAR', '4TH YEAR'].map(l => ({ value: l, label: l }));
+  readonly genderOptions: SelectOption[] = [{ value: 'MALE', label: 'MALE' }, { value: 'FEMALE', label: 'FEMALE' }];
+  editingStudentId: number | null = null;
+  isSaving = false;
+  editForm = this.emptyEditForm();
 
   constructor(
     private router: Router, 
@@ -128,7 +143,7 @@ export class Students implements OnInit {
    */
   filterStudents(): void {
     this.filteredStudents = this.students.filter(student => {
-      const matchesName = student.full_name.toLowerCase().includes(this.searchName.toLowerCase());
+      const matchesName = matchesSearch(student.full_name, this.searchName);
       const matchesDept = this.selectedDepartment === '' || student.department === this.selectedDepartment;
       return matchesName && matchesDept;
     });
@@ -148,6 +163,76 @@ export class Students implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedStudent = null;
+  }
+
+  private emptyEditForm() {
+    return { fullName: '', email: '', srCode: '', department: '', program: '', yearLevel: '', gender: '', contactNumber: '' };
+  }
+
+  /**
+   * Open the Edit modal with the student's current details
+   */
+  openEditModal(student: Student): void {
+    this.editForm = {
+      fullName: student.full_name,
+      email: student.email,
+      srCode: formValue(student.sr_code),
+      department: formValue(student.department),
+      program: formValue(student.program),
+      yearLevel: formValue(student.year_level).toUpperCase(),
+      gender: formValue(student.gender).toUpperCase(),
+      contactNumber: formValue(student.contact_number)
+    };
+    this.editingStudentId = student.id;
+  }
+
+  closeEditModal(): void {
+    this.editingStudentId = null;
+    this.editForm = this.emptyEditForm();
+  }
+
+  /**
+   * Save the Edit modal (PUT /api/students/{id})
+   */
+  saveStudent(): void {
+    const f = this.editForm;
+    if (!f.fullName.trim() || !f.email.trim()) {
+      this.dialog.error('Check your input', 'Please fill in the Full Name and Email.');
+      return;
+    }
+    if (f.srCode.trim() && !/^\d{2}-\d{5}$/.test(f.srCode.trim())) {
+      this.dialog.error('Check your input', 'SR Code must look like 23-30046.');
+      return;
+    }
+    if (f.contactNumber.trim() && f.contactNumber.replace(/\D/g, '').length !== 11) {
+      this.dialog.error('Check your input', 'Contact number must have 11 digits (0912-345-6789).');
+      return;
+    }
+
+    const body = {
+      fullName: f.fullName.trim(),
+      email: f.email.trim(),
+      srCode: f.srCode.trim(),
+      collegeDepartment: f.department.trim(),
+      program: f.program.trim(),
+      yearLevel: f.yearLevel,
+      gender: f.gender,
+      contactNumber: f.contactNumber.trim()
+    };
+    this.isSaving = true;
+    this.http.put<any>(`http://localhost:8000/api/students/${this.editingStudentId}`, body)
+      .pipe(finalize(() => (this.isSaving = false)))
+      .subscribe({
+        next: () => {
+          this.closeEditModal();
+          this.loadStudents();
+          this.dialog.success('Success!', 'Student updated successfully!');
+        },
+        error: (error) => {
+          console.error('Error updating student:', error);
+          this.dialog.error('Something went wrong', 'Error updating student: ' + (error.error?.detail || 'Please try again.'));
+        }
+      });
   }
 
   /**

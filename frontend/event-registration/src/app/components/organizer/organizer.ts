@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Edit, Trash2 } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Edit, Trash2, Eye, Mail, IdCard, Building2, UserRound, Phone } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
@@ -12,6 +12,7 @@ import { SessionService } from '../../services/session.service';
 import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { matchesSearch } from '../../utils/search';
 import { DisplayCasePipe, displayCase } from '../../utils/display-case.pipe';
 export interface Organizer {
   id: number;
@@ -20,6 +21,8 @@ export interface Organizer {
   department: string;
   email: string;
   contact_number: string;
+  gender?: string | null;
+  avatar_url?: string;
 }
 
 /**
@@ -31,7 +34,7 @@ export interface Organizer {
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe, SelectComponent],
   templateUrl: './organizer.html',
-  styleUrl: './organizer.css'
+  styleUrls: ['./organizer.css', '../admin-table.css']
 })
 export class Organizer implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
@@ -46,6 +49,8 @@ export class Organizer implements OnInit {
   editingOrganizerId: number | null = null;
   organizers: Organizer[] = [];
   isLoading = true; // Add loading state
+  showViewModal = false;
+  selectedOrganizer: Organizer | null = null;
 
   // Unique departments of the loaded organizers, for the filter dropdown
   /** Department filter: "All Departments" plus each department (shown in Title Case). */
@@ -59,9 +64,8 @@ export class Organizer implements OnInit {
 
   // Organizers matching the search box and the department filter
   get filteredOrganizers(): Organizer[] {
-    const name = this.searchName.trim().toLowerCase();
     return this.organizers.filter(o =>
-      (o.full_name || '').toLowerCase().includes(name) &&
+      matchesSearch(o.full_name, this.searchName) &&
       (this.selectedDepartment === '' || o.department === this.selectedDepartment)
     );
   }
@@ -89,6 +93,12 @@ export class Organizer implements OnInit {
   readonly Search = Search;
   readonly Edit = Edit;
   readonly Trash2 = Trash2;
+  readonly Eye = Eye;
+  readonly Mail = Mail;
+  readonly IdCard = IdCard;
+  readonly Building2 = Building2;
+  readonly UserRound = UserRound;
+  readonly Phone = Phone;
 
   constructor(
     private router: Router, 
@@ -357,6 +367,22 @@ export class Organizer implements OnInit {
           this.dialog.error('Could Not Update Organizer', error.error?.detail || 'Please try again.');
         }
       });
+  }
+
+  /**
+   * View organizer details
+   */
+  viewOrganizer(organizer: Organizer): void {
+    this.selectedOrganizer = organizer;
+    this.showViewModal = true;
+  }
+
+  /**
+   * Close view modal
+   */
+  closeViewModal(): void {
+    this.showViewModal = false;
+    this.selectedOrganizer = null;
   }
 
   /**

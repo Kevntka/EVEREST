@@ -9,6 +9,7 @@ import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { finalize } from 'rxjs';
 import { PasswordChecklist } from '../password-checklist/password-checklist';
+import { isStrongPassword, PASSWORD_REQUIREMENT_MESSAGE } from '../../utils/password-policy';
 @Component({
   selector: 'app-register-organizer',
   standalone: true,
@@ -68,6 +69,12 @@ export class RegisterOrganizer {
     // Validate passwords match
     if (this.password !== this.confirmPassword) {
       this.errorMessage = 'Passwords do not match';
+      return;
+    }
+
+    // All password rules are required (the strength bar must reach Strong)
+    if (!isStrongPassword(this.password)) {
+      this.errorMessage = PASSWORD_REQUIREMENT_MESSAGE;
       return;
     }
 

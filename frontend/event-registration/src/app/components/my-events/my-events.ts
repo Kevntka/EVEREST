@@ -22,6 +22,7 @@ import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { matchesSearch } from '../../utils/search';
 import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 
@@ -127,10 +128,9 @@ export class MyEvents implements OnInit {
   }
 
   get filteredEvents(): MyEvent[] {
-    const query = this.searchQuery.trim().toLowerCase();
     return this.events.filter(e =>
       (this.activeTab === 'all' || e.attendance === 'present') &&
-      (!query || e.title.toLowerCase().includes(query))
+      matchesSearch(e.title, this.searchQuery)
     );
   }
 

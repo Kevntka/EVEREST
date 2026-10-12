@@ -1,0 +1,160 @@
+<!-- Edit Event Modal (admin Dashboard) -->
+<div class="modal-overlay" *ngIf="loaded">
+  <div class="modal-content create-event-modal">
+    <h2 class="modal-title">Edit Event</h2>
+
+    <form class="modal-form" (ngSubmit)="save()">
+      <div class="form-field">
+        <label class="form-label">Event Title <span style="color: #ff6b6b;">*</span></label>
+        <input 
+          type="text" 
+          class="form-input"
+          [(ngModel)]="form.title"
+          name="title"
+          required
+        />
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Description <span style="color: #ff6b6b;">*</span></label>
+          <textarea 
+            class="form-textarea"
+            [(ngModel)]="form.description"
+            name="description"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">About this Event</label>
+          <textarea 
+            class="form-textarea"
+            [(ngModel)]="form.aboutEvent"
+            name="aboutEvent"
+            rows="3"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <!-- Enrolling is allowed from the start to the end date; before it the event shows as Upcoming -->
+        <div class="form-field">
+          <label class="form-label">Registration <span style="color: #ff6b6b;">*</span></label>
+          <div class="time-range">
+            <input 
+              type="date" 
+              class="form-input"
+              [(ngModel)]="form.registrationStart"
+              name="registrationStart"
+              aria-label="Registration start date"
+              [max]="form.registrationEnd || form.date"
+              required
+            />
+            <span class="time-range-sep">to</span>
+            <input 
+              type="date" 
+              class="form-input"
+              [(ngModel)]="form.registrationEnd"
+              name="registrationEnd"
+              aria-label="Registration end date"
+              [min]="form.registrationStart"
+              [max]="form.date"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Start and end share the one Time field; the event auto-closes after the end time -->
+        <div class="form-field">
+          <label class="form-label">Time <span style="color: #ff6b6b;">*</span></label>
+          <div class="time-range">
+            <input 
+              type="time" 
+              class="form-input"
+              [(ngModel)]="form.time"
+              name="time"
+              aria-label="Start time"
+              required
+            />
+            <span class="time-range-sep">to</span>
+            <input 
+              type="time" 
+              class="form-input"
+              [(ngModel)]="form.endTime"
+              name="endTime"
+              aria-label="End time"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Start Date <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="date" 
+            class="form-input"
+            [(ngModel)]="form.date"
+            name="date"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Capacity <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="number" 
+            class="form-input"
+            [(ngModel)]="form.capacity"
+            name="capacity"
+            min="1"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Department <span style="color: #ff6b6b;">*</span></label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="form.department"
+            name="department"
+            maxlength="150"
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Venue <span style="color: #ff6b6b;">*</span></label>
+          <input 
+            type="text" 
+            class="form-input"
+            [(ngModel)]="form.venue"
+            name="venue"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Cover Photo<span class="form-hint"> (leave empty to keep the current photo)</span></label>
+        <input 
+          type="file" 
+          class="form-input"
+          accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+          (change)="onFileSelected($event)"
+        />
+        <!-- Types match the backend check (security/validation.py: image_upload); big photos are shrunk under its 5 MB limit before upload -->
+        <span class="form-hint cover-hint">{{ coverProcessing ? 'Resizing photo...' : 'Accepted: JPG, PNG, GIF, or WebP · Max 25 MB' }}</span>
+      </div>
+
+      <div class="modal-buttons">
+        <button type="button" class="btn-cancel" (click)="closed.emit()">Cancel</button>
+        <button type="submit" class="btn-create" [disabled]="isSaving || coverProcessing">{{ isSaving ? 'Saving...' : 'Save' }}</button>
+      </div>
+    </form>
+  </div>
+</div>

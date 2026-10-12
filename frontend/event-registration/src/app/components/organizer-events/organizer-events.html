@@ -102,6 +102,10 @@
               </td>
               <td>
                 <div class="action-buttons">
+                  <button class="action-btn view-btn" (click)="viewEvent(event.id)" title="View">
+                    <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    <span>View</span>
+                  </button>
                   <button class="action-btn attendance-btn" (click)="openAttendance(event)" title="Attendance">
                     <lucide-icon [img]="ClipboardCheck" [size]="16"></lucide-icon>
                     <span>Attendance</span>
@@ -137,11 +141,79 @@
     </div>
   </div>
 
+  <!-- View Event Modal: same design as the admin View modals (Students, Organizer); shows only
+       what the organizer entered in the Create Event form. Closes on Close, backdrop click, or Escape -->
+  <div class="modal-overlay" *ngIf="viewedEvent" (click)="closeView()">
+    <div class="modal-content details-modal" (click)="$event.stopPropagation()">
+      <div class="details-header">
+        <div class="details-avatar details-cover" [style.background-color]="viewedEvent.cover_photo ? null : coverColor(viewedEvent.event_name)">
+          @if (viewedEvent.cover_photo) {
+            <img [src]="'http://localhost:8000' + viewedEvent.cover_photo" alt="Cover photo" />
+          } @else {
+            {{ coverInitial(viewedEvent.event_name) }}
+          }
+        </div>
+        <div class="details-identity">
+          <h2 class="details-name">{{ viewedEvent.event_name }}</h2>
+          <p class="details-email">
+            <lucide-icon [img]="MapPin" [size]="14"></lucide-icon>{{ viewedEvent.venue }}
+          </p>
+        </div>
+      </div>
+
+      <div class="details-list">
+          <div class="details-row details-row-text">
+            <span class="details-label"><lucide-icon [img]="FileText" [size]="16"></lucide-icon>Description</span>
+            <span class="details-value">{{ viewedEvent.event_description }}</span>
+          </div>
+          <div class="details-row details-row-text">
+            <span class="details-label"><lucide-icon [img]="Info" [size]="16"></lucide-icon>About this Event</span>
+            <span class="details-value">{{ viewedEvent.about_event || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="CalendarRange" [size]="16"></lucide-icon>Registration</span>
+            <span class="details-value">{{ formatDate(viewedEvent.registration_start) }} - {{ formatDate(viewedEvent.registration_end) }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Calendar" [size]="16"></lucide-icon>Start Date</span>
+            <span class="details-value">{{ formatDate(viewedEvent.event_date) }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Clock" [size]="16"></lucide-icon>Time</span>
+            <span class="details-value">{{ formatTimeRange(viewedEvent.event_time, viewedEvent.event_end_time) }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Users" [size]="16"></lucide-icon>Capacity</span>
+            <span class="details-value">{{ viewedEvent.capacity }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Building2" [size]="16"></lucide-icon>Department</span>
+            <span class="details-value">{{ viewedEvent.department || 'N/A' }}</span>
+          </div>
+      </div>
+
+      <button type="button" class="details-close" (click)="closeView()">Close</button>
+    </div>
+  </div>
+
   <!-- Attendance Modal: the event's attendee list; like the admin View modals it has a
        Close button and closes on backdrop click (or Escape) -->
   <div class="modal-overlay" *ngIf="attendanceEvent" (click)="closeAttendance()">
     <div class="modal-content attendance-modal" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Attendance<span class="attendance-event-name"> · {{ attendanceEvent.title }}</span></h2>
+      <div class="attendance-header">
+        <h2 class="modal-title">Attendance<span class="attendance-event-name"> · {{ attendanceEvent.title }}</span></h2>
+        <div class="search-box attendance-search">
+          <lucide-icon [img]="Search" [size]="18" class="search-icon"></lucide-icon>
+          <input
+            type="text"
+            placeholder="Search attendee"
+            class="search-input"
+            aria-label="Search attendees"
+            [(ngModel)]="attendeeQuery"
+            (ngModelChange)="attendancePager.page = 1"
+          />
+        </div>
+      </div>
 
       <div class="attendance-scroll">
         <table class="attendance-table">
@@ -156,7 +228,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let attendee of attendancePager.slice(attendees)">
+            <tr *ngFor="let attendee of attendancePager.slice(filteredAttendees)">
               <td>{{ attendee.name | displayCase }}</td>
               <td class="role-cell">{{ attendee.type }}</td>
               <td>{{ attendee.email }}</td>
@@ -182,14 +254,17 @@
         <div class="table-empty" *ngIf="attendees.length === 0">
           {{ attendeesLoading ? 'Loading...' : 'No attendees to display' }}
         </div>
+        <div class="table-empty" *ngIf="attendees.length > 0 && filteredAttendees.length === 0">
+          No attendees match "{{ attendeeQuery.trim() }}"
+        </div>
       </div>
 
       <div class="table-pagination">
-        <button class="pagination-btn" [disabled]="attendancePager.isFirst(attendees)" (click)="attendancePager.prev(attendees)" aria-label="Previous page">
+        <button class="pagination-btn" [disabled]="attendancePager.isFirst(filteredAttendees)" (click)="attendancePager.prev(filteredAttendees)" aria-label="Previous page">
           <span>&lt;</span>
         </button>
-        <span class="pagination-info">{{ attendancePager.current(attendees) }} of {{ attendancePager.totalPages(attendees) }}</span>
-        <button class="pagination-btn" [disabled]="attendancePager.isLast(attendees)" (click)="attendancePager.next(attendees)" aria-label="Next page">
+        <span class="pagination-info">{{ attendancePager.current(filteredAttendees) }} of {{ attendancePager.totalPages(filteredAttendees) }}</span>
+        <button class="pagination-btn" [disabled]="attendancePager.isLast(filteredAttendees)" (click)="attendancePager.next(filteredAttendees)" aria-label="Next page">
           <span>&gt;</span>
         </button>
         <button type="button" class="details-close" (click)="closeAttendance()">Close</button>

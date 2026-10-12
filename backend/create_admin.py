@@ -15,6 +15,8 @@ import sys
 from database.config import SessionLocal, engine
 from models.user import User
 from auth.jwt_handler import hash_password
+from fastapi import HTTPException
+from security import validation as validate
 
 engine.echo = False  # no SQL logging in the terminal
 
@@ -30,8 +32,10 @@ def ask(prompt: str) -> str:
 def ask_password() -> str:
     while True:
         password = getpass.getpass("Password (hidden): ")
-        if not password:
-            print("  Password is required.")
+        try:
+            validate.new_password(password)  # same rules as registration
+        except HTTPException as e:
+            print(f"  {e.detail}")
             continue
         if getpass.getpass("Confirm password: ") != password:
             print("  Passwords don't match. Try again.")
@@ -77,3 +81,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

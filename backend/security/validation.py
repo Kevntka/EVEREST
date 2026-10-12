@@ -48,13 +48,36 @@ def email(value: Optional[str]) -> str:
 
 def password(value: Optional[str]) -> str:
     """
-    Passwords only need to be non-empty (strength is rated on the frontend, not
-    required: a product decision). The maximum length stops multi-megabyte inputs.
+    A password typed at login: only non-empty and not too long (the maximum stops
+    multi-megabyte inputs). Rules aren't checked here, so accounts made before they
+    were required can still log in.
     """
     if not value or not value.strip():
         raise bad_request("Password is required.")
     if len(value) > MAX_PASSWORD_LENGTH:
         raise bad_request(f"Password must be {MAX_PASSWORD_LENGTH} characters or fewer")
+    return value
+
+
+PASSWORD_REQUIREMENT_MESSAGE = (
+    "Password must have at least 8 characters, an uppercase letter, a lowercase letter, "
+    "a number, and a symbol (e.g. ! @ # $ % ^ & *)."
+)
+
+
+def new_password(value: Optional[str]) -> str:
+    """
+    A new password (registration, Reset / Set New Password): every rule is required,
+    the same rules as the frontend's utils/password-policy.ts.
+    """
+    value = password(value)
+    if not (len(value) >= 8
+            and re.search(r"[A-Z]", value)
+            and re.search(r"[a-z]", value)
+            and re.search(r"[0-9]", value)
+            # any symbol: a character that isn't a letter (any language), number, or space
+            and any(not c.isalnum() and not c.isspace() for c in value)):
+        raise bad_request(PASSWORD_REQUIREMENT_MESSAGE)
     return value
 
 

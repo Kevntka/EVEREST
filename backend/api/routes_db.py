@@ -212,9 +212,10 @@ async def _start_pending_registration(
     from services.email_service import send_verification_link_email
 
     email = validate.email(email)
-    validate.password(password)
+    validate.new_password(password)
     full_name = validate.text(full_name, "Full name", 150)
-    department = validate.text(department, "Department", 150, required=role in ("student", "organizer"))
+    department = validate.text(department, "Office/Department" if role == "organizer" else "Department", 150,
+                               required=role in ("student", "organizer"))
     contact_number = validate.contact_number(contact_number)  # optional for every role
     employment_id = validate.text(employment_id, "Employment ID", 50, required=role == "organizer")
 
@@ -359,7 +360,9 @@ def get_organizers(db: Session = Depends(get_db)):
                 "full_name": user.full_name,
                 "department": dept.department_name if dept else "N/A",
                 "email": user.email,
-                "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A"
+                "contact_number": user_role.contact_number if user_role and user_role.contact_number else "N/A",
+                "gender": user_role.gender if user_role else None,
+                "avatar_url": _avatar_url(user.id, user_role)
             })
         
         print(f"   ✅ Returning {len(result)} organizers")
@@ -625,7 +628,7 @@ async def reset_password(
     from auth.jwt_handler import hash_password
 
     token_hash = _hash_code(validate.token(token))
-    validate.password(new_password)
+    validate.new_password(new_password)
 
     result = db.execute(text("""
         SELECT t.user_id, t.expires_at, t.used, u.email
@@ -1515,6 +1518,48 @@ def update_student_profile(body: ProfileUpdate, user: User = Depends(attendee_on
     Update the logged-in student's (or participant's) profile.
     Email and role can't be changed here.
     """
+    _apply_profile(db, user, body)
+    user_role, dept = _role_row(db, user)
+    return {
+        "success": True,
+        "message": "Profile updated successfully",
+        "profile": _profile_response(user, user_role, dept)
+    }
+
+
+class AdminProfileUpdate(ProfileUpdate):
+    email: str
+
+
+def _admin_update_attendee(db: Session, user_id: int, role: str, body: AdminProfileUpdate) -> User:
+    """Admin Edit on the Students / Participants pages: the profile fields plus the email."""
+    user = db.query(User).filter(User.id == user_id, User.role == role).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"{role.capitalize()} not found")
+    email = validate.email(body.email)
+    if db.query(User).filter(User.email == email, User.id != user_id).first():
+        raise HTTPException(status_code=409, detail="Email already registered")
+    user.email = email
+    _apply_profile(db, user, body)
+    return user
+
+
+@router.put("/students/{student_id}", dependencies=[Depends(admin_only)])
+def update_student(student_id: int, body: AdminProfileUpdate, db: Session = Depends(get_db)):
+    """Update a student's details (admin). The password is not changed here."""
+    _admin_update_attendee(db, student_id, "student", body)
+    return {"success": True, "message": "Student updated successfully"}
+
+
+@router.put("/participants/{participant_id}", dependencies=[Depends(admin_only)])
+def update_participant(participant_id: int, body: AdminProfileUpdate, db: Session = Depends(get_db)):
+    """Update a participant's details (admin). The password is not changed here."""
+    _admin_update_attendee(db, participant_id, "participant", body)
+    return {"success": True, "message": "Participant updated successfully"}
+
+
+def _apply_profile(db: Session, user: User, body: ProfileUpdate) -> None:
+    """Validate and save the profile fields (and commit)."""
     # Length limits match the user_roles columns
     validate.text(body.fullName, "Full name", 150)
     for value, label, limit in ((body.collegeDepartment, "College / Department", 150),
@@ -1579,13 +1624,6 @@ def update_student_profile(body: ProfileUpdate, user: User = Depends(attendee_on
         user_role.department_id = get_or_create_department(db, clean(body.collegeDepartment)).id
     db.commit()
 
-    user_role, dept = _role_row(db, user)
-    return {
-        "success": True,
-        "message": "Profile updated successfully",
-        "profile": _profile_response(user, user_role, dept)
-    }
-
 
 @router.post("/student/profile/avatar")
 async def upload_profile_avatar(avatar: UploadFile = File(...), user: User = Depends(attendee_only),
@@ -1641,17 +1679,20 @@ async def update_event(
     registration_start: str = Form(None),
     registration_end: str = Form(None),
     cover_photo: UploadFile = File(None),
-    organizer: User = Depends(organizer_only),
+    user: User = Depends(require_roles("admin", "organizer")),
     db: Session = Depends(get_db)
 ):
     """
-    Update an event (only by the organizer who created it, from the login cookie).
+    Update an event. Admins can edit any event; organizers only their own (from the login cookie).
     The cover photo is replaced only when a new one is uploaded.
     """
     from sqlalchemy import text
     from datetime import datetime
 
-    if not _organizer_owns_event(db, event_id, organizer.id):
+    if user.role == "organizer":
+        if not _organizer_owns_event(db, event_id, user.id):
+            raise HTTPException(status_code=404, detail="Event not found")
+    elif not db.execute(text("SELECT 1 FROM events WHERE id = :id"), {"id": event_id}).first():
         raise HTTPException(status_code=404, detail="Event not found")
 
     fields = _validate_event_text(event_name, event_description, venue, capacity, department, about_event)

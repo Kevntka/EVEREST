@@ -344,9 +344,10 @@
   table-layout: fixed;
 }
 
-/* Equal-width columns */
-.events-table th {
-  width: 25%;
+/* The Action column is fixed wide enough for its 4 buttons with Attendance hover-expanded
+   (so hovering doesn't shift the table); the other 3 columns share the rest */
+.events-table th:last-child {
+  width: 290px;
 }
 
 .events-table td {
@@ -439,18 +440,13 @@
   color: #9ca3af;
 }
 
-.events-table th:last-child,
-.events-table td:last-child {
-  min-width: 220px;
-}
-
 .action-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-width: 200px;
+  min-width: 252px;
 }
 
 .action-btn {
@@ -517,6 +513,7 @@
   min-width: 74px;
 }
 
+.view-btn,
 .edit-btn {
   background-color: #dbe4ee;
   border: 1px solid rgba(154, 170, 189, 0.45);
@@ -524,11 +521,14 @@
   opacity: 0.75;
 }
 
+.view-btn:hover,
+.view-btn:focus-visible,
 .edit-btn:hover {
   background-color: #c4d0dd;
   opacity: 1;
 }
 
+.view-btn lucide-icon,
 .edit-btn lucide-icon {
   color: #6b7280;
 }
@@ -773,16 +773,19 @@
   background-color: #3a3a3a;
 }
 
+:host-context(body.dark-mode) .view-btn,
 :host-context(body.dark-mode) .edit-btn {
   background-color: #374151;
   border: 1px solid #4b5563;
   color: #ffffff;
 }
 
+:host-context(body.dark-mode) .view-btn:hover,
 :host-context(body.dark-mode) .edit-btn:hover {
   background-color: #4b5563;
 }
 
+:host-context(body.dark-mode) .view-btn lucide-icon,
 :host-context(body.dark-mode) .edit-btn lucide-icon {
   color: #ffffff;
 }
@@ -980,6 +983,32 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Title on the left, attendee search on the right; they stack on narrow screens */
+.attendance-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+}
+
+.attendance-header .modal-title {
+  min-width: 0;
+  margin: 0;
+}
+
+.attendance-search {
+  flex: 0 1 320px;
+}
+
+@media (max-width: 600px) {
+  .attendance-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
 }
 
 .attendance-event-name {
@@ -1181,3 +1210,155 @@
   margin-top: 6px;
   font-size: 12px;
 }
+
+/* View Event modal: the admin View (details) modal design, copied from students.css.
+   Scoped to .details-modal because this page's own .details-close is the Attendance
+   modal's Close in its pagination row. */
+.details-modal {
+  max-width: 520px;
+  padding: 28px;
+}
+
+.details-modal .details-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.details-modal .details-avatar {
+  width: 68px;
+  height: 68px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #dc3545;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+/* Event cover: a landscape rounded rectangle (covers are wide photos), not a circle */
+.details-modal .details-cover {
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+}
+
+.details-modal .details-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.details-modal .details-identity {
+  min-width: 0;
+}
+
+.details-modal .details-name {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #212529;
+  overflow-wrap: anywhere;
+}
+
+
+.details-modal .details-email {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #6c757d;
+  overflow-wrap: anywhere;
+}
+
+.details-modal .details-email lucide-icon,
+.details-modal .details-label lucide-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.details-modal .details-list {
+  padding: 8px 0;
+}
+
+/* Every row uses the same two columns: a fixed-width label column on the left and the
+   value starting at the same line on the right, so short and long values line up */
+.details-modal .details-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.details-modal .details-row:last-child {
+  border-bottom: none;
+}
+
+.details-modal .details-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 21px; /* one line of .details-value, so label and value share a baseline */
+  font-size: 13px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.details-modal .details-value {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #212529;
+  overflow-wrap: anywhere;
+}
+
+/* Description and About: same columns, but the full text wraps (keeping the organizer's
+   line breaks) in a lighter weight so long paragraphs stay readable */
+.details-modal .details-row-text .details-value {
+  font-weight: 500;
+  white-space: pre-line;
+}
+
+/* Narrow screens: stack the label above its value */
+@media (max-width: 480px) {
+  .details-modal .details-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+.details-modal .details-close {
+  width: 100%;
+  height: auto;
+  margin: 12px 0 0;
+  padding: 11px;
+}
+
+:host-context(body.dark-mode) .details-modal {
+  background-color: #2d2d2d;
+}
+
+:host-context(body.dark-mode) .details-modal .details-header,
+:host-context(body.dark-mode) .details-modal .details-row {
+  border-color: #404040;
+}
+
+:host-context(body.dark-mode) .details-modal .details-name,
+:host-context(body.dark-mode) .details-modal .details-value {
+  color: #ffffff;
+}
+
+:host-context(body.dark-mode) .details-modal .details-email,
+:host-context(body.dark-mode) .details-modal .details-label {
+  color: #b0b0b0;
+}
+

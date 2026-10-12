@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { PasswordChecklist } from '../password-checklist/password-checklist';
+import { isStrongPassword, PASSWORD_REQUIREMENT_MESSAGE } from '../../utils/password-policy';
 @Component({
   selector: 'app-reset-password',
   standalone: true,
@@ -60,6 +61,12 @@ export class ResetPassword implements OnInit {
 
     if (this.newPassword !== this.confirmPassword) {
       this.dialog.error('Check your input', 'Passwords do not match');
+      return;
+    }
+
+    // All password rules are required (the strength bar must reach Strong)
+    if (!isStrongPassword(this.newPassword)) {
+      this.dialog.error('Check your input', PASSWORD_REQUIREMENT_MESSAGE);
       return;
     }
 

@@ -2,11 +2,12 @@ import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, UserCheck, CalendarCheck, CalendarX2, CalendarX, Eye, Trash2 } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, UserCheck, CalendarCheck, CalendarX2, CalendarX, Eye, Edit, Trash2 } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { EventEditModal } from '../event-edit-modal/event-edit-modal';
 
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
@@ -33,9 +34,9 @@ export interface Event {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ClickOutsideDirective],
+  imports: [CommonModule, LucideAngularModule, ClickOutsideDirective, EventEditModal],
   templateUrl: './dashboard.html',
-  styleUrl: './dashboard.css'
+  styleUrls: ['./dashboard.css', '../admin-table.css']
 })
 export class Dashboard implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
@@ -46,6 +47,8 @@ export class Dashboard implements OnInit {
   showDropdown = false;
   sidebarOpen = true;
   events: Event[] = [];
+  /** Event shown in the Edit Event modal (null = closed) */
+  editingEventId: number | null = null;
   
   // Statistics
   totalUsers = 0;
@@ -72,6 +75,7 @@ export class Dashboard implements OnInit {
   readonly CalendarX = CalendarX;
   readonly Eye = Eye;
   readonly Trash2 = Trash2;
+  readonly Edit = Edit;
 
   /** Upcoming / Open / Full / Closed, as on the organizer's and student's pages. */
   badgeStatus(event: Event): string {
@@ -175,6 +179,12 @@ export class Dashboard implements OnInit {
    */
   viewEvent(eventId: number): void {
     this.router.navigate(['/event', eventId]);
+  }
+
+  /** The Edit Event modal saved: close it and reload the table */
+  onEventSaved(): void {
+    this.editingEventId = null;
+    this.loadEvents();
   }
 
   /**

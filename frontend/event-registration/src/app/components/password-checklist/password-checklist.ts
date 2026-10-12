@@ -11,8 +11,9 @@ const STRENGTH = [
 ];
 
 /**
- * Password strength bar shown under the confirm-password field. It only rates the
- * password (Weak / Fair / Good / Strong); any non-empty password is accepted.
+ * Password strength bar shown under the confirm-password field (Weak / Fair / Good /
+ * Strong). Every rule is required, so a new password is accepted only at Strong; the
+ * note below the bar turns green then.
  */
 @Component({
   selector: 'app-password-checklist',
@@ -26,8 +27,8 @@ const STRENGTH = [
       </div>
       <span class="strength-label" [style.color]="strength.color">{{ password ? strength.label : '' }}</span>
     </div>
-    <p class="password-note">
-      Note: Use 8+ characters with uppercase, lowercase, number &amp; symbol.
+    <p class="password-note" [class.met]="metCount === segments.length">
+      Required: 8+ characters with uppercase, lowercase, number &amp; symbol.
     </p>
   `,
   styles: [`
@@ -65,11 +66,17 @@ const STRENGTH = [
       color: #6b7280;
       text-align: left;
     }
+    .password-note.met {
+      color: #16a34a;
+    }
     :host-context(body.dark-mode) .segment {
       background-color: #4b5563;
     }
     :host-context(body.dark-mode) .password-note {
       color: #9ca3af;
+    }
+    :host-context(body.dark-mode) .password-note.met {
+      color: #4ade80;
     }
   `]
 })

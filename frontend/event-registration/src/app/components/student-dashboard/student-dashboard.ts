@@ -25,6 +25,7 @@ import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
+import { matchesSearch } from '../../utils/search';
 import { coverInitial, coverColor } from '../../utils/cover-placeholder';
 import { ChangePasswordService } from '../../services/change-password.service';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
@@ -149,15 +150,15 @@ export class StudentDashboard implements OnInit {
 
   get filteredEvents(): Event[] {
     return this.events.filter(event => {
-      const matchesSearch = event.title.toLowerCase().includes(this.searchQueryLeft.toLowerCase());
+      const matchesQuery = matchesSearch(event.title, this.searchQueryLeft);
       const matchesStatus = !this.selectedStatusLeft || this.badgeStatus(event) === this.selectedStatusLeft;
-      return matchesSearch && matchesStatus;
+      return matchesQuery && matchesStatus;
     });
   }
 
   get filteredUpcomingEvents(): Event[] {
     return this.upcomingEvents.filter(event =>
-      event.title.toLowerCase().includes(this.searchQueryRight.toLowerCase())
+      matchesSearch(event.title, this.searchQueryRight)
     );
   }
 

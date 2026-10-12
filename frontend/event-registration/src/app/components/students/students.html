@@ -108,6 +108,10 @@
                     <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
                     <span>View</span>
                   </button>
+                  <button class="action-btn edit-btn" (click)="openEditModal(student)" aria-label="Edit student">
+                    <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
+                    <span>Edit</span>
+                  </button>
                   <button class="action-btn delete-btn" (click)="deleteStudent(student.id)" aria-label="Delete student">
                     <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
                     <span>Delete</span>
@@ -183,6 +187,68 @@
       </div>
 
       <button type="button" class="details-close" (click)="closeViewModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Edit Student Modal (doesn't close on backdrop click) -->
+  <div class="modal-overlay" *ngIf="editingStudentId !== null">
+    <div class="modal-content edit-modal">
+      <h2 class="modal-title">Edit Student</h2>
+      <form class="modal-form" (ngSubmit)="saveStudent()" #editFormRef="ngForm">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Full Name <span class="required">*</span></label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.fullName" name="fullName"
+                   pattern="[A-Za-zÑñ .'\-]+" title="Letters, spaces, periods, apostrophes and hyphens only"
+                   maxlength="150" style="text-transform: uppercase" required />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Email <span class="required">*</span></label>
+            <input type="email" class="form-input" [(ngModel)]="editForm.email" name="email" maxlength="255" required email />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">SR Code</label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.srCode" name="srCode"
+                   pattern="[0-9]{2}\-[0-9]{5}" title="Format: 23-30046" placeholder="23-30046" maxlength="8" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Year Level</label>
+            <app-select class="form-input" placeholder="SELECT YEAR LEVEL" [options]="yearLevelOptions" [(ngModel)]="editForm.yearLevel" name="yearLevel"></app-select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Department</label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.department" name="department"
+                   pattern="[A-Za-zÑñ .'\-]+" title="Letters, spaces, periods, apostrophes and hyphens only"
+                   maxlength="150" style="text-transform: uppercase" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Program</label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.program" name="program"
+                   pattern="[A-Za-zÑñ .'\-]+" title="Letters, spaces, periods, apostrophes and hyphens only"
+                   maxlength="150" style="text-transform: uppercase" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Gender</label>
+            <app-select class="form-input" placeholder="SELECT GENDER" [options]="genderOptions" [(ngModel)]="editForm.gender" name="gender"></app-select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Contact Number</label>
+            <input type="tel" class="form-input" [(ngModel)]="editForm.contactNumber" name="contactNumber"
+                   placeholder="0912-345-6789" maxlength="13" />
+          </div>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="btn-cancel" (click)="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn-create" [disabled]="!editFormRef.form.valid || isSaving">{{ isSaving ? 'Saving...' : 'Save' }}</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

@@ -104,6 +104,10 @@
                     <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
                     <span>View</span>
                   </button>
+                  <button class="action-btn edit-btn" (click)="openEditModal(participant)" aria-label="Edit participant">
+                    <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
+                    <span>Edit</span>
+                  </button>
                   <button class="action-btn delete-btn" (click)="deleteParticipant(participant.id)" aria-label="Delete participant">
                     <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
                     <span>Delete</span>
@@ -175,6 +179,54 @@
       </div>
 
       <button type="button" class="details-close" (click)="closeViewModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Edit Participant Modal (doesn't close on backdrop click) -->
+  <div class="modal-overlay" *ngIf="editingParticipantId !== null">
+    <div class="modal-content edit-modal">
+      <h2 class="modal-title">Edit Participant</h2>
+      <form class="modal-form" (ngSubmit)="saveParticipant()" #editFormRef="ngForm">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Full Name <span class="required">*</span></label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.fullName" name="fullName"
+                   pattern="[A-Za-zÑñ .'\-]+" title="Letters, spaces, periods, apostrophes and hyphens only"
+                   maxlength="150" style="text-transform: uppercase" required />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Email <span class="required">*</span></label>
+            <input type="email" class="form-input" [(ngModel)]="editForm.email" name="email" maxlength="255" required email />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Address</label>
+            <input type="text" class="form-input" [(ngModel)]="editForm.address" name="address"
+                   maxlength="255" style="text-transform: uppercase" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Birthday</label>
+            <input type="date" class="form-input" [(ngModel)]="editForm.birthday" name="birthday" [max]="today" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Gender</label>
+            <app-select class="form-input" placeholder="SELECT GENDER" [options]="genderOptions" [(ngModel)]="editForm.gender" name="gender"></app-select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Contact Number</label>
+            <input type="tel" class="form-input" [(ngModel)]="editForm.contactNumber" name="contactNumber"
+                   placeholder="0912-345-6789" maxlength="13" />
+          </div>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="button" class="btn-cancel" (click)="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn-create" [disabled]="!editFormRef.form.valid || isSaving">{{ isSaving ? 'Saving...' : 'Save' }}</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

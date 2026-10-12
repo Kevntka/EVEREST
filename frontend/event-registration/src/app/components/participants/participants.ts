@@ -1,15 +1,18 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SelectComponent, SelectOption } from '../select/select';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Trash2, Mail, MapPin, Phone, UserRound, Cake, Hourglass } from 'lucide-angular';
+import { LucideAngularModule, LayoutDashboard, Calendar, User, GraduationCap, Users, Menu, Moon, Sun, LogOut, ChevronDown, Search, Eye, Edit, Trash2, Mail, MapPin, Phone, UserRound, Cake, Hourglass } from 'lucide-angular';
 import { ThemeService } from '../../services/theme.service';
 import { DialogService } from '../../services/dialog.service';
 import { SessionService } from '../../services/session.service';
 
+import { finalize } from 'rxjs';
 import { ClickOutsideDirective } from '../../directives/click-outside.directive';
 import { Paginator } from '../../utils/paginator';
+import { matchesSearch } from '../../utils/search';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 export interface Participant {
   id: number;
@@ -23,6 +26,11 @@ export interface Participant {
   avatar_url?: string;  // '/api/users/{id}/avatar', or '' without a picture
 }
 
+/** 'N/A' (the list's placeholder for an empty field) -> '' for the Edit form. */
+function formValue(value: string | null | undefined): string {
+  return value && value !== 'N/A' ? value : '';
+}
+
 /**
  * Participants Component
  * Manage participants with search and filter capabilities
@@ -30,9 +38,9 @@ export interface Participant {
 @Component({
   selector: 'app-participants',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe],
+  imports: [CommonModule, FormsModule, LucideAngularModule, ClickOutsideDirective, DisplayCasePipe, SelectComponent],
   templateUrl: './participants.html',
-  styleUrl: './participants.css'
+  styleUrls: ['./participants.css', '../admin-table.css']
 })
 export class Participants implements OnInit {
   readonly pager = new Paginator(10); // 10 rows per page
@@ -66,6 +74,15 @@ export class Participants implements OnInit {
   readonly Phone = Phone;
   readonly UserRound = UserRound;
   readonly Trash2 = Trash2;
+  readonly Edit = Edit;
+
+  // Edit modal (admin): same fields and checks as the participant's own Profile page
+  readonly genderOptions: SelectOption[] = [{ value: 'MALE', label: 'MALE' }, { value: 'FEMALE', label: 'FEMALE' }];
+  /** Birthday picker can't go past today. */
+  readonly today = new Date().toLocaleDateString('en-CA');
+  editingParticipantId: number | null = null;
+  isSaving = false;
+  editForm = this.emptyEditForm();
 
   constructor(
     private router: Router, 
@@ -115,7 +132,7 @@ export class Participants implements OnInit {
    */
   filterParticipants(): void {
     this.filteredParticipants = this.participants.filter(participant => {
-      return participant.full_name.toLowerCase().includes(this.searchName.toLowerCase());
+      return matchesSearch(participant.full_name, this.searchName);
     });
   }
 
@@ -133,6 +150,73 @@ export class Participants implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedParticipant = null;
+  }
+
+  private emptyEditForm() {
+    return { fullName: '', email: '', address: '', birthday: '', gender: '', contactNumber: '' };
+  }
+
+  /**
+   * Open the Edit modal with the participant's current details
+   */
+  openEditModal(participant: Participant): void {
+    this.editForm = {
+      fullName: participant.full_name,
+      email: participant.email,
+      address: formValue(participant.address),
+      birthday: formValue(participant.birthday),
+      gender: formValue(participant.gender).toUpperCase(),
+      contactNumber: formValue(participant.contact_number)
+    };
+    this.editingParticipantId = participant.id;
+  }
+
+  closeEditModal(): void {
+    this.editingParticipantId = null;
+    this.editForm = this.emptyEditForm();
+  }
+
+  /**
+   * Save the Edit modal (PUT /api/participants/{id})
+   */
+  saveParticipant(): void {
+    const f = this.editForm;
+    if (!f.fullName.trim() || !f.email.trim()) {
+      this.dialog.error('Check your input', 'Please fill in the Full Name and Email.');
+      return;
+    }
+    // "YYYY-MM-DD" strings compare correctly as text
+    if (f.birthday && f.birthday > this.today) {
+      this.dialog.error('Check your input', "Birthday can't be in the future.");
+      return;
+    }
+    if (f.contactNumber.trim() && f.contactNumber.replace(/\D/g, '').length !== 11) {
+      this.dialog.error('Check your input', 'Contact number must have 11 digits (0912-345-6789).');
+      return;
+    }
+
+    const body = {
+      fullName: f.fullName.trim(),
+      email: f.email.trim(),
+      address: f.address.trim(),
+      birthday: f.birthday,
+      gender: f.gender,
+      contactNumber: f.contactNumber.trim()
+    };
+    this.isSaving = true;
+    this.http.put<any>(`http://localhost:8000/api/participants/${this.editingParticipantId}`, body)
+      .pipe(finalize(() => (this.isSaving = false)))
+      .subscribe({
+        next: () => {
+          this.closeEditModal();
+          this.loadParticipants();
+          this.dialog.success('Success!', 'Participant updated successfully!');
+        },
+        error: (error) => {
+          console.error('Error updating participant:', error);
+          this.dialog.error('Something went wrong', 'Error updating participant: ' + (error.error?.detail || 'Please try again.'));
+        }
+      });
   }
 
   /**

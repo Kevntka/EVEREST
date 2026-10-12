@@ -106,6 +106,10 @@
               <td>{{ organizer.contact_number }}</td>
               <td>
                 <div class="action-buttons">
+                  <button class="action-btn view-btn" (click)="viewOrganizer(organizer)" title="View">
+                    <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
+                    <span>View</span>
+                  </button>
                   <button class="action-btn edit-btn" (click)="openEditModal(organizer)" title="Edit">
                     <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
                     <span>Edit</span>
@@ -233,6 +237,49 @@
           <button type="submit" class="btn-create" [disabled]="!organizerForm.form.valid || isSaving">{{ isSaving ? 'Saving...' : 'Save' }}</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- View Organizer Modal -->
+  <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
+    <div class="modal-content details-modal" (click)="$event.stopPropagation()" *ngIf="selectedOrganizer">
+      <div class="details-header">
+        <div class="details-avatar">
+          @if (selectedOrganizer.avatar_url) {
+            <img [src]="'http://localhost:8000' + selectedOrganizer.avatar_url" alt="Profile picture" />
+          } @else {
+            {{ selectedOrganizer.full_name.charAt(0).toUpperCase() }}
+          }
+        </div>
+        <div class="details-identity">
+          <h2 class="details-name">{{ selectedOrganizer.full_name }}</h2>
+          <span class="details-role">Organizer</span>
+          <p class="details-email">
+            <lucide-icon [img]="Mail" [size]="14"></lucide-icon>{{ selectedOrganizer.email }}
+          </p>
+        </div>
+      </div>
+
+      <div class="details-list">
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="IdCard" [size]="16"></lucide-icon>Employment ID</span>
+            <span class="details-value">{{ selectedOrganizer.employment_id || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Building2" [size]="16"></lucide-icon>Office/Department</span>
+            <span class="details-value">{{ selectedOrganizer.department || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="UserRound" [size]="16"></lucide-icon>Gender</span>
+            <span class="details-value">{{ selectedOrganizer.gender || 'N/A' }}</span>
+          </div>
+          <div class="details-row">
+            <span class="details-label"><lucide-icon [img]="Phone" [size]="16"></lucide-icon>Contact Number</span>
+            <span class="details-value">{{ selectedOrganizer.contact_number || 'N/A' }}</span>
+          </div>
+      </div>
+
+      <button type="button" class="details-close" (click)="closeViewModal()">Close</button>
     </div>
   </div>
 </div>

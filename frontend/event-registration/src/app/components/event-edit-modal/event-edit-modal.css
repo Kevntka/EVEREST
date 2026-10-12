@@ -1,0 +1,256 @@
+/* Copied from organizer-events.css (Create/Edit Event modal) */
+/* Create Event Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 30px;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 24px 0;
+  color: #212529;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* minmax(0, 1fr): both columns stay exactly half, even with two date boxes in one */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.form-input,
+.form-textarea {
+  padding: 10px 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #212529;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #ff6b6b;
+}
+
+.btn-create {
+  padding: 12px 24px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+  margin-top: 8px;
+}
+
+.btn-create:hover {
+  background-color: #c82333;
+}
+
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Create Event modal buttons */
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.modal-buttons .btn-create {
+  flex: 1;
+  margin-top: 0;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 12px 24px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+:host-context(body.dark-mode) .btn-cancel {
+  color: #d1d5db;
+  border-color: #4b5563;
+}
+
+:host-context(body.dark-mode) .btn-cancel:hover {
+  background-color: #374151;
+  border-color: #6b7280;
+}
+
+/* Dark mode - modal form fields */
+:host-context(body.dark-mode) .form-textarea {
+  background-color: #1a1a1a;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+:host-context(body.dark-mode) .form-textarea:focus {
+  background-color: #3a3a3a;
+  border-color: #dc3545;
+}
+
+/* Dark native date/time pickers and file button */
+:host-context(body.dark-mode) .form-input {
+  color-scheme: dark;
+}
+
+/* Start "to" end inside the one Time field */
+.time-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-range .form-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Two dates share half a row: less padding so dd/mm/yyyy and the picker icon fit */
+.time-range input[type="date"] {
+  padding-left: 10px;
+  padding-right: 8px;
+}
+
+.time-range-sep {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+:host-context(body.dark-mode) .time-range-sep {
+  color: #b0b0b0;
+}
+
+/* Compact Create Event modal */
+.create-event-modal {
+  max-width: 600px;
+  padding: 24px;
+}
+
+.create-event-modal .modal-title {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+.create-event-modal .modal-form {
+  gap: 14px;
+}
+
+.create-event-modal .form-row {
+  gap: 12px;
+}
+
+.create-event-modal .form-field {
+  gap: 6px;
+}
+
+.create-event-modal .form-label {
+  font-size: 13px;
+}
+
+.create-event-modal .form-input,
+.create-event-modal .form-textarea {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.create-event-modal .form-textarea {
+  min-height: 64px;
+}
+
+/* Date, time, number, text and select boxes all render at different heights: pin them to one */
+.create-event-modal .form-input:not([type="file"]) {
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.create-event-modal .btn-create,
+.create-event-modal .btn-cancel {
+  padding: 10px 20px;
+}
+
+/* Dark scrollbar when the modal has to scroll */
+:host-context(body.dark-mode) .modal-content {
+  color-scheme: dark;
+}
+
+.form-hint {
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+/* Attendance modal: the event's attendee list */
+
+.cover-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}

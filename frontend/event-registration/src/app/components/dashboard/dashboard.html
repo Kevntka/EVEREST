@@ -138,6 +138,10 @@
                     <lucide-icon [img]="Eye" [size]="16"></lucide-icon>
                     <span>View</span>
                   </button>
+                  <button class="action-btn edit-btn" (click)="editingEventId = event.id" aria-label="Edit event">
+                    <lucide-icon [img]="Edit" [size]="16"></lucide-icon>
+                    <span>Edit</span>
+                  </button>
                   <button class="action-btn delete-btn" (click)="deleteEvent(event.id)" aria-label="Delete event">
                     <lucide-icon [img]="Trash2" [size]="16"></lucide-icon>
                     <span>Delete</span>
@@ -164,4 +168,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Edit Event Modal: loads the event, saves with PUT /api/events/{id} -->
+  @if (editingEventId !== null) {
+    <app-event-edit-modal [eventId]="editingEventId" (saved)="onEventSaved()" (closed)="editingEventId = null"></app-event-edit-modal>
+  }
 </div>

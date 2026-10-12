@@ -10,7 +10,11 @@ describe('password policy', () => {
     ['ALLUPPER1!', false],
     ['NoNumber!!', false],
     ['NoSymbol123', false],
-    ['Passw0rd^^', false], // ^ is not one of !@#$%&*_
+    ['Passw0rd^^', true],  // any symbol counts
+    ['Passw0rd.', true],
+    ['Passw0rd-', true],
+    ['Passw0rd ', false],  // a space isn't a symbol
+    ['Passw0rdñ', false],  // nor is a letter like ñ
     ['Aa1!', false],
     ['', false],
   ])('%s -> strong: %s', (password, strong) => {
@@ -22,7 +26,7 @@ describe('password policy', () => {
       'At least 8 characters',
       'One uppercase letter (A-Z)',
       'One number (0-9)',
-      'One symbol (! @ # $ % & * _)',
+      'One symbol (e.g. ! @ # $ % ^ & *)',
     ]);
   });
 });
