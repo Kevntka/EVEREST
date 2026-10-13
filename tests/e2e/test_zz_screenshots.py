@@ -25,7 +25,7 @@ PWD = "Everest@2026"
 
 
 def mail(tag):
-    return f"23-30046+{tag}@g.batstate-u.edu.ph"
+    return f"{tag}@example.com"
 
 
 @pytest.fixture(scope="session")
