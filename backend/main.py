@@ -9,6 +9,7 @@ from security.csrf import CSRFMiddleware
 from security.headers import SecurityHeadersMiddleware
 from security.rate_limit import RateLimitMiddleware
 from security.errors import ServerErrorMiddleware
+from database.concurrency import DatabaseConcurrencyLimit
 
 app = FastAPI(
     title="EVEREST Event Registration API",
@@ -24,6 +25,8 @@ app = FastAPI(
 # the browser needs to show the error message. ServerErrorMiddleware is added first
 # (innermost) so an unexpected error becomes a JSON 500 that still gets CORS headers.
 app.add_middleware(ServerErrorMiddleware)
+# Second innermost: requests rejected by CSRF or rate limits never take a database slot
+app.add_middleware(DatabaseConcurrencyLimit)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -43,6 +46,13 @@ def add_missing_columns():
     with engine.begin() as conn:
         # Organizer self-registration stores the Employment ID until the email is verified
         conn.execute(text("ALTER TABLE pending_registrations ADD COLUMN IF NOT EXISTS employment_id VARCHAR(50)"))
+        # Sign Out stores the token's id here so a copied token can't be used afterwards
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS revoked_tokens (
+                jti VARCHAR(64) PRIMARY KEY,
+                expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+            )
+        """))
 
 
 # Include database routes (PostgreSQL) - MUST BE BEFORE MOUNTS

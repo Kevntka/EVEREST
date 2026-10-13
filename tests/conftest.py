@@ -11,6 +11,8 @@ Session setup (once per run):
 import sys
 from pathlib import Path
 
+import os
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -19,6 +21,21 @@ from helpers import db as dbh  # noqa: E402
 from helpers.api import ApiClient  # noqa: E402
 from helpers.config import BACKEND_PORT, FRESH_BACKEND_PORT, REPORTS_DIR  # noqa: E402
 from helpers.server import BackendProcess  # noqa: E402
+
+
+# ---------------------------------------------------------------- on/off switch
+# The suite is turned OFF: every test is skipped before any fixture runs, so nothing
+# touches the test database or starts a backend. Turn it back on for one run with
+# EVEREST_TESTS_ENABLED=1 (see tests/README.md).
+TESTS_ENABLED = os.getenv("EVEREST_TESTS_ENABLED") == "1"
+
+
+def pytest_collection_modifyitems(config, items):
+    if TESTS_ENABLED:
+        return
+    off = pytest.mark.skip(reason="tests are deactivated; set EVEREST_TESTS_ENABLED=1 to run them")
+    for item in items:
+        item.add_marker(off)
 
 
 # ---------------------------------------------------------------- reports
@@ -43,7 +60,19 @@ def engine():
 
 
 @pytest.fixture(scope="session")
-def backend(engine):
+def mail_sink():
+    """Local catch-all mail server, only when TEST_MAIL_SINK=1 (otherwise email stays off)."""
+    if not os.getenv("TEST_MAIL_SINK"):
+        yield None
+        return
+    from helpers.mailsink import MailSink
+    sink = MailSink().start()
+    yield sink
+    sink.stop()
+
+
+@pytest.fixture(scope="session")
+def backend(engine, mail_sink):
     server = BackendProcess(BACKEND_PORT, "backend.log").start()
     yield server
     server.stop()

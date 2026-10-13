@@ -16,7 +16,7 @@ from typing import Literal, Optional
 import re
 from services.recaptcha_service import verify_recaptcha, get_error_message
 from security import validation as validate
-from security.access_control import current_user, require_roles, password_fingerprint
+from security.access_control import current_user, require_roles, password_fingerprint, revoke_token
 from security.csrf import csrf_token_response
 from security.rate_limit import rate_limit, login_lockout
 from security.settings import FRONTEND_URL, HTTPS_ONLY
@@ -43,7 +43,9 @@ def get_csrf_token(request: Request):
     return csrf_token_response(request)
 
 
-@router.post("/login", dependencies=[Depends(rate_limit("login", 20, 60))])
+# Per IP: a whole class may log in at once from one campus IP. Password guessing is
+# still stopped by reCAPTCHA and the per-email lockout (5 wrong passwords).
+@router.post("/login", dependencies=[Depends(rate_limit("login", 100, 60))])
 async def login(
     request: Request,
     email: str = Form(...),
@@ -146,10 +148,12 @@ async def login(
 
 
 @router.post("/logout")
-async def logout():
+def logout(request: Request, db: Session = Depends(get_db)):
     """
-    Logout endpoint - clears the authentication cookie
+    Sign Out: revokes the login token on the server (a copied token stops working too)
+    and clears the authentication cookie
     """
+    revoke_token(db, request.cookies.get("access_token"))
     response = JSONResponse(
         status_code=200,
         content={
@@ -277,7 +281,7 @@ async def _start_pending_registration(
 
 
 # Sign-ups per IP address: 20 every 10 minutes
-register_limit = rate_limit("register", 20, 600)
+register_limit = rate_limit("register", 60, 600)  # per IP; many students may share one
 
 
 @router.post("/register/student", dependencies=[Depends(register_limit)])
@@ -1301,8 +1305,12 @@ def cancel_enrollment(event_id: int, user: User = Depends(attendee_only), db: Se
     return {"success": True, "message": "Enrollment cancelled"}
 
 
+# Plain def (not async): FastAPI runs it in a worker thread, so waiting for the event's
+# row lock below doesn't block the event loop. As async def, a second enrollment waiting
+# for the lock froze the loop, and the first request's session (holding the lock) could
+# never be closed: a deadlock.
 @router.post("/events/{event_id}/enroll")
-async def enroll_event(
+def enroll_event(
     event_id: int,
     user: User = Depends(attendee_only),
     db: Session = Depends(get_db)
@@ -1312,7 +1320,14 @@ async def enroll_event(
     """
     from sqlalchemy import text
     _close_finished_events(db)
-    
+
+    # Lock this event's row until the enrollment is committed or rolled back, so
+    # simultaneous enrollments in the same event are counted one at a time by
+    # PostgreSQL (two people can't both get the last slot, even with several workers)
+    if not db.execute(text("SELECT id FROM events WHERE id = :event_id FOR UPDATE"),
+                      {"event_id": event_id}).first():
+        raise HTTPException(status_code=404, detail="Event not found")
+
     # Check if event exists
     event_query = text("""
         SELECT e.id, e.capacity, e.status, COUNT(r.id) AS enrolled,
@@ -1748,7 +1763,7 @@ async def update_event(
 
 
 
-@router.post("/verify-email", dependencies=[Depends(rate_limit("verify-email", 20, 600))])
+@router.post("/verify-email", dependencies=[Depends(rate_limit("verify-email", 60, 600))])
 def verify_email(token: str = Form(...), db: Session = Depends(get_db)):
     """
     Opened from the emailed "Verify Account" link; creates the student/participant/organizer

@@ -9,8 +9,9 @@ from .config import BACKEND_DIR, BACKEND_HOST, BACKEND_PYTHON, REPORTS_DIR, back
 
 
 class BackendProcess:
-    def __init__(self, port: int, log_name: str):
+    def __init__(self, port: int, log_name: str, workers: int = 1):
         self.port = port
+        self.workers = workers  # uvicorn --workers (load tests); rate-limit counters are per worker
         self.url = f"http://{BACKEND_HOST}:{port}"
         self.log_path = REPORTS_DIR / log_name
         self.proc: subprocess.Popen | None = None
@@ -27,7 +28,8 @@ class BackendProcess:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         self._log = open(self.log_path, "w", encoding="utf-8")
         self.proc = subprocess.Popen(
-            [str(BACKEND_PYTHON), "-m", "uvicorn", "main:app", "--host", BACKEND_HOST, "--port", str(self.port)],
+            [str(BACKEND_PYTHON), "-m", "uvicorn", "main:app", "--host", BACKEND_HOST, "--port", str(self.port),
+             *(["--workers", str(self.workers)] if self.workers > 1 else [])],
             cwd=BACKEND_DIR, env=backend_env(), stdout=self._log, stderr=subprocess.STDOUT,
         )
         deadline = time.monotonic() + timeout

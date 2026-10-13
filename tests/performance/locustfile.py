@@ -6,33 +6,48 @@ database, seeds accounts and events, and runs this file headless with a step-by-
 Never point it at a backend that uses real data.
 
 User mix (what the app's pages do):
-- AttendeeUser (most traffic): logs in once, then polls GET /api/events like the Student
+- AttendeeUser (most traffic): signs in, then polls GET /api/events like the Student
   Dashboard's 10-second auto-refresh, opens event details, checks My Events, and enrolls.
 - OrganizerUser: Organizer Dashboard stats and their events.
 
-Every simulated user comes from the same IP (this machine), so the backend's per-IP limits
-apply to the whole test: 600 API requests/min and 20 logins/min. 429 responses are counted
-as failures named "429 rate limited" so they're visible in the results, not hidden.
+Signing in (LOGIN_MODE):
+- "password": POST /api/login like the browser. Every simulated user comes from this one
+  machine, so the per-IP login limit (100/min) caps how fast users can sign in.
+- "token": each user gets a login cookie signed with the TEST backend's random JWT secret,
+  with the same claims /api/login puts in it (user_id, role, pwd fingerprint, unique jti).
+  The backend checks it exactly like a real login cookie. This measures the load of many
+  signed-in users without waiting on the per-IP login limit; login itself is still
+  exercised by LoginUser (a few users that keep logging in at a realistic rate).
+
+Limits that still apply per IP: requests without a login cookie (csrf-token before login,
+login) share 600/min. 429 responses are counted as failures named "429 rate limited", so
+they're visible in the results, not hidden.
 """
 
 import json
 import os
 import random
+import uuid
+from datetime import datetime, timedelta, timezone
 
+import jwt
 from locust import HttpUser, LoadTestShape, between, events, task
 
 ORIGIN = "http://localhost:4200"
 ACCOUNTS = json.loads(os.environ.get("EVEREST_LOAD_ACCOUNTS", '{"attendees": [], "organizers": []}'))
 EVENT_IDS = json.loads(os.environ.get("EVEREST_LOAD_EVENT_IDS", "[]"))
 PASSWORD = os.environ.get("EVEREST_LOAD_PASSWORD", "")
-_next = {"attendees": 0, "organizers": 0}
+LOGIN_MODE = os.environ.get("LOGIN_MODE", "password")
+JWT_SECRET = os.environ.get("EVEREST_LOAD_JWT_SECRET", "")
 
 
-def _take(kind: str) -> str:
-    pool = ACCOUNTS[kind]
-    email = pool[_next[kind] % len(pool)]
-    _next[kind] += 1
-    return email
+def _check(r, ok=(200,)):
+    if r.status_code == 429:
+        r.failure("429 rate limited")
+    elif r.status_code in ok:
+        r.success()
+    else:
+        r.failure(f"HTTP {r.status_code}")
 
 
 class EverestUser(HttpUser):
@@ -41,26 +56,34 @@ class EverestUser(HttpUser):
 
     def on_start(self):
         self.client.headers["Origin"] = ORIGIN
-        token = self.client.get("/api/csrf-token", name="/api/csrf-token").json()["csrf_token"]
-        self.client.headers["X-CSRF-Token"] = token
-        self.email = _take(self.kind)
+        self.account = random.choice(ACCOUNTS[self.kind])
+        if LOGIN_MODE == "token":
+            now = datetime.now(timezone.utc)
+            token = jwt.encode({
+                "sub": self.account["email"], "user_id": self.account["id"], "email": self.account["email"],
+                "role": self.account["role"], "pwd": self.account["pwd"], "jti": uuid.uuid4().hex,
+                "iat": now, "exp": now + timedelta(hours=2),
+            }, JWT_SECRET, algorithm="HS256")
+            self.client.cookies.set("access_token", f"Bearer {token}")
+        with self.client.get("/api/csrf-token", name="/api/csrf-token", catch_response=True) as r:
+            _check(r)
+            if r.status_code == 200:
+                self.client.headers["X-CSRF-Token"] = r.json()["csrf_token"]
+        if LOGIN_MODE != "token":
+            self.login()
+
+    def login(self):
         with self.client.post("/api/login", name="/api/login", catch_response=True, data={
-                "email": self.email, "password": PASSWORD, "recaptcha_token": "load-test"}) as r:
-            if r.status_code == 429:
-                r.failure("429 rate limited")
-            elif r.status_code != 200:
-                r.failure(f"login {r.status_code}")
+                "email": self.account["email"], "password": PASSWORD, "recaptcha_token": "load-test"}) as r:
+            _check(r)
 
     def _get(self, path, name):
         with self.client.get(path, name=name, catch_response=True) as r:
-            if r.status_code == 429:
-                r.failure("429 rate limited")
-            elif r.status_code != 200:
-                r.failure(f"HTTP {r.status_code}")
+            _check(r)
 
 
 class AttendeeUser(EverestUser):
-    weight = 4
+    weight = 8
     kind = "attendees"
     wait_time = between(1, 3)
 
@@ -83,16 +106,11 @@ class AttendeeUser(EverestUser):
             return
         with self.client.post(f"/api/events/{random.choice(EVENT_IDS)}/enroll", name="/api/events/[id]/enroll",
                               catch_response=True) as r:
-            if r.status_code == 429:
-                r.failure("429 rate limited")
-            elif r.status_code in (200, 409, 400):  # 409 already enrolled, 400 full: correct answers
-                r.success()
-            else:
-                r.failure(f"HTTP {r.status_code}")
+            _check(r, ok=(200, 409, 400))  # 409 already enrolled, 400 full/closed: correct answers
 
 
 class OrganizerUser(EverestUser):
-    weight = 1
+    weight = 2
     kind = "organizers"
     wait_time = between(2, 5)
 
@@ -105,9 +123,23 @@ class OrganizerUser(EverestUser):
         self._get("/api/events", "/api/events (organizer)")
 
 
+if LOGIN_MODE == "token":
+    class LoginUser(EverestUser):
+        """Keeps the real login path (bcrypt + reCAPTCHA check) under load in token mode:
+        5 users, about one login every 10 s each, so the per-IP login limit isn't reached."""
+        fixed_count = 5
+        kind = "attendees"
+        wait_time = between(8, 12)
+
+        @task
+        def log_in_again(self):
+            # Cookies are kept: the CSRF check needs the csrf cookie together with its header
+            self.login()
+
+
 class StepLoad(LoadTestShape):
     """Raise the number of users in steps; each step lasts STEP_SECONDS.
-    LOAD_STEPS, e.g. "5,10,20,40", comes from run_load_test.py."""
+    LOAD_STEPS, e.g. "100,250,500,1000", comes from run_load_test.py."""
     steps = [int(s) for s in os.environ.get("LOAD_STEPS", "5,10,20,40").split(",")]
     step_seconds = int(os.environ.get("STEP_SECONDS", "60"))
     spawn_rate = float(os.environ.get("SPAWN_RATE", "2"))

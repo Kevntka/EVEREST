@@ -4,6 +4,7 @@ JWT tokens and password hashing.
 Access control (reading the login cookie, checking roles) is in security/access_control.py.
 """
 
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
@@ -37,6 +38,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     now = datetime.now(timezone.utc)
     to_encode = {
         **data,
+        # Unique id of this token, so Sign Out can revoke it (revoked_tokens table)
+        "jti": secrets.token_urlsafe(16),
         "iat": now,
         "exp": now + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)),
     }

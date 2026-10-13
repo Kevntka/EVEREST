@@ -5,7 +5,9 @@ Rate limiting (in memory).
   forgot password, ...): at most `limit` requests per `seconds` from one IP address.
 - LoginLockout locks an email for a while after too many wrong passwords, which stops
   password guessing even when the attacker spreads requests over many IPs.
-- RateLimitMiddleware is a generous overall cap per IP for every API request.
+- RateLimitMiddleware is an overall cap for every API request: per logged-in user
+  (from the login cookie), or per IP for requests without a valid login. Counting
+  logged-in users separately matters on campus, where many users share one public IP.
 
 Counters live in this process's memory: they reset when the server restarts and are
 not shared between several server processes. That is fine for one uvicorn process;
@@ -22,6 +24,22 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
+
+
+def client_key(request: Request) -> str:
+    """'user:<id>' for a request with a validly signed login cookie, else 'ip:<address>'.
+    Only the signature and expiry are checked here (fast); revoked tokens and deleted
+    accounts are still rejected by the route itself."""
+    cookie = request.cookies.get("access_token")
+    if cookie:
+        from auth.jwt_handler import decode_access_token
+        try:
+            user_id = decode_access_token(cookie.removeprefix("Bearer ")).get("user_id")
+            if user_id is not None:
+                return f"user:{user_id}"
+        except HTTPException:
+            pass
+    return f"ip:{client_ip(request)}"
 
 
 class SlidingWindow:
@@ -107,7 +125,8 @@ login_lockout = LoginLockout()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Overall cap per IP on /api requests (the event pages poll every 10 seconds)."""
+    """Overall cap on /api requests per logged-in user, or per IP without a login
+    (the event pages poll every 10 seconds)."""
 
     def __init__(self, app, limit: int = 600, seconds: int = 60):
         super().__init__(app)
@@ -115,7 +134,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path.startswith("/api") and request.method != "OPTIONS":
-            wait = _windows.hit(f"global:{client_ip(request)}", self.limit, self.seconds)
+            wait = _windows.hit(f"global:{client_key(request)}", self.limit, self.seconds)
             if wait:
                 return JSONResponse(
                     status_code=429,

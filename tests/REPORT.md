@@ -1,4 +1,4 @@
-# EVEREST test report — 2026-10-12
+# EVEREST test report — 2026-10-12 (updated 2026-10-13)
 
 Environment: Windows 11, Python 3.13, Angular dev server on :4200, the backend under test on :8001
 (uvicorn, one process), and PostgreSQL `ers_db_test` (reset at the start of each run). Production
@@ -12,7 +12,7 @@ data (`ers_db`) was not touched; a read-only check after the runs found no test 
 | API contract | `test_api.py` | all passed |
 | Functional / CRUD / persistence | `test_functional.py` | all passed |
 | Scheduling / capacity | `test_scheduling.py` | all passed |
-| Security | `test_security.py` | all passed, 1 xfail (finding #1) |
+| Security | `test_security.py` | all passed (119 on 2026-10-13; the logout xfail now passes) |
 | Browser (Playwright) | `e2e/test_browser.py` | 25 passed |
 | **Total** | | **261 passed, 1 xfailed, 0 failed** (238 s) |
 
@@ -37,16 +37,16 @@ budgets shared between tests), and they were fixed in the tests. No application 
 
 ## Security findings
 
-1. **Logout doesn't revoke the session token** (medium). `/api/logout` only deletes the cookie; a copied JWT
+1. **FIXED 2026-10-13. Logout doesn't revoke the session token** (medium). Tokens now carry a `jti`; logout stores it in `revoked_tokens`; tests `test_token_is_unusable_after_logout` and `test_logout_only_revokes_that_session`. `/api/logout` only deletes the cookie; a copied JWT
    still works until it expires (24 h). Test: `test_token_is_unusable_after_logout` (xfail, strict).
    Fix: store a per-user `token_version` (or a denylist of `jti`s) checked in `current_user`, and bump it on logout; or shorten the token lifetime.
-2. **Per-IP limits vs. a shared campus IP** (high for real use). All limits are per client IP: 600 API requests/min
+2. **FIXED 2026-10-13. Per-IP limits vs. a shared campus IP** (high for real use). The overall limit is now per logged-in user; login 100/min and register/verify 60 per 10 min per IP; test `test_global_limit_counts_each_logged_in_user_separately`. Original note: All limits are per client IP: 600 API requests/min
    and 20 logins/min. Users on the campus network likely share one public IP, and every open event page polls
    every 10 s, so about 100 open pages behind one IP use the whole 600/min budget and everyone gets 429.
    The load test shows exactly this from one IP (below). Fix: key the general limit by logged-in user (cookie)
    with a higher per-IP ceiling, keep strict per-IP/per-email limits only on login/register/reset, and
    move counters to Redis if you run more than one process.
-3. **Capacity isn't enforced by the database** (medium, latent). `enroll_event` counts and then inserts. It's
+3. **FIXED 2026-10-13. Capacity isn't enforced by the database** (medium, latent). Enrollment now locks the event row (`SELECT ... FOR UPDATE`); test `test_simultaneous_enrollment_respects_capacity_lock`. Original note: `enroll_event` counts and then inserts. It's
    safe today only because the route is `async def` with blocking DB calls, so one uvicorn process handles
    enrollments one at a time (the concurrency test passed 4/4 runs). With several workers, two students could
    take the last slot. Fix: lock the event row (`SELECT ... FOR UPDATE`) or do the insert with a conditional
@@ -88,3 +88,32 @@ users beyond what's in the table.**
 3. Convert blocking `async def` routes to `def` (#4), then repeat the load test from several machines.
 4. Run `pytest tests --ignore=tests/e2e -m "not ratelimit"` on every change (about 3 minutes, mostly waiting
    for the login limit); run the full suite with e2e before releases.
+
+## Load test, 1000+ users (2026-10-13)
+
+Command: `run_load_test.py --steps 100,250,500,750,1000,1500 --step-seconds 60 --spawn-rate 25
+--attendees 1600 --organizers 40 --events 40 --login token --locust-workers 4`. One backend
+process (`uvicorn`, no `--workers`), PostgreSQL and Locust all on the same laptop (8 logical
+CPUs), so these are this machine's limits, not a server's. Users sign in with test-backend
+tokens (`--login token`); 5 extra users keep doing real logins.
+
+Before the fix the server **deadlocked at about 250 users** (pool timeouts, HTTP 500, ~0 req/s).
+Cause: a request holds its DB connection while hopping between FastAPI worker threads
+(`current_user`, then the route); with all 40 threads waiting for one of the 30 connections,
+nothing could finish. Fix: `get_db` is async, the pool is 20 + 30, and
+`database/concurrency.py` lets at most 40 API requests use the database at once.
+
+| Users | Requests/s | Median | p95 | Failures |
+|---|---|---|---|---|
+| 100 | 43.2 | 10 ms | 130 ms | 0 |
+| 250 | 106.8 | 16 ms | 560 ms | 0 |
+| 500 | 170.8 | 740 ms | 1.0 s | 1 |
+| 750 | 161.5 | 2.3 s | 2.7 s | 2 (total) |
+| 1000 | 161.4 | 4.0 s | 4.3 s | 2 (total) |
+| 1500 | 157.1 | 6.9 s | 7.3 s | 3 of 46,375 (0.006%) |
+
+Reading it: no errors up to 1500 users, but one process tops out at about 160-170 requests/s
+(CPU-bound Python). Past ~300 users, requests wait in line, so pages get slower (4 s at 1000
+users) instead of failing. Fast responses (p95 under 1 s) held up to roughly 250-400 users.
+Next steps for more capacity: several uvicorn workers or servers (move the in-memory rate
+limits to the database/Redis first), and test from a separate machine.

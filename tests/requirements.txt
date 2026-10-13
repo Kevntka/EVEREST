@@ -10,3 +10,8 @@ SQLAlchemy==2.0.54
 bcrypt==5.0.0
 PyJWT==2.10.1
 locust==2.40.5
+# local catch-all mail server (TEST_MAIL_SINK=1) and the QA workbook
+aiosmtpd==1.4.6
+cryptography==50.0.2
+openpyxl
+pillow

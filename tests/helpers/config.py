@@ -94,4 +94,15 @@ def backend_env() -> dict:
         "PYTHONIOENCODING": "utf-8",   # the routes print emoji (cp1252 would fail requests)
         "PYTHONUNBUFFERED": "1",
     })
+    if os.getenv("TEST_MAIL_SINK"):
+        # Send real SMTP mail to the local catch-all server (helpers/mailsink.py) instead of
+        # turning email off: nothing leaves this computer, and tests can open the links.
+        from .mailsink import MAIL_PORT, ensure_certificate
+        env.update({
+            "EMAIL_ENABLED": "true",
+            "SMTP_HOST": "localhost",
+            "SMTP_PORT": str(MAIL_PORT),
+            "SMTP_USE_SSL": "false",               # plain connection, then STARTTLS
+            "SSL_CERT_FILE": str(ensure_certificate()),  # trust the local server's certificate
+        })
     return env

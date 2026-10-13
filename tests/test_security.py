@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import jwt
+import uuid
+
 import pytest
 
 from helpers import db as dbh
@@ -131,7 +133,7 @@ def _claims(user: dict, **overrides) -> dict:
     password_hash = None  # filled by caller when needed
     now = datetime.now(timezone.utc)
     claims = {"sub": user["email"], "user_id": user["id"], "email": user["email"], "role": user["role"],
-              "iat": now, "exp": now + timedelta(hours=1)}
+              "jti": uuid.uuid4().hex, "iat": now, "exp": now + timedelta(hours=1)}
     claims.update(overrides)
     return claims
 
@@ -184,15 +186,23 @@ def test_role_claim_in_token_is_not_trusted(engine, api_url, student_user):
     client.close()
 
 
+def test_token_without_id_is_rejected(engine, api_url, student_user):
+    """Tokens from before Sign Out could revoke them (no jti) must log in again."""
+    claims = _claims(student_user, pwd=_fingerprint(engine, student_user["id"]))
+    del claims["jti"]
+    client = _client_with_token(api_url, jwt.encode(claims, JWT_TEST_SECRET, algorithm="HS256"))
+    assert client.get("/api/events").status_code == 401
+    client.close()
+
+
 def test_token_without_password_fingerprint_is_rejected(api_url, student_user):
     client = _client_with_token(api_url, jwt.encode(_claims(student_user), JWT_TEST_SECRET, algorithm="HS256"))
     assert client.get("/api/events").status_code == 401
     client.close()
 
 
-@pytest.mark.xfail(strict=True, reason="SECURITY FINDING: logout only deletes the cookie; a copied JWT "
-                                       "keeps working until it expires (24 h). No server-side revocation.")
 def test_token_is_unusable_after_logout(engine, new_client, api_url):
+    """Sign Out revokes the token on the server: a copy taken before Sign Out stops working."""
     user = dbh.create_user(engine, "student")
     client = new_client().login_as(user)
     stolen = client.cookie("access_token").strip('"').removeprefix("Bearer ")
@@ -201,6 +211,15 @@ def test_token_is_unusable_after_logout(engine, new_client, api_url):
     status = replay.get("/api/events").status_code
     replay.close()
     assert status == 401
+    assert dbh.scalar(engine, "SELECT COUNT(*) FROM revoked_tokens") >= 1
+
+
+def test_logout_only_revokes_that_session(engine, new_client):
+    """Signing out on one device doesn't sign the same user out elsewhere."""
+    user = dbh.create_user(engine, "student")
+    phone, laptop = new_client().login_as(user), new_client().login_as(user)
+    phone.post("/api/logout")
+    assert laptop.get("/api/events").status_code == 200
 
 
 # ---------------------------------------------------------------- password storage + policy
@@ -320,11 +339,12 @@ def test_cookies_are_not_secure_flagged_on_http_dev(engine, new_client):
 # ---------------------------------------------------------------- rate limiting (fresh backend each)
 @pytest.mark.ratelimit
 def test_login_rate_limit_per_ip(fresh_backend):
+    """100 logins per minute per IP (a whole class can log in at once from one campus IP)."""
     client = ApiClient(fresh_backend.url)
     statuses = [client.login(dbh.unique_email("rl"), DEFAULT_PASSWORD, wait_if_rate_limited=False).status_code
-                for _ in range(21)]
+                for _ in range(101)]
     client.close()
-    assert statuses[:20].count(429) == 0 and statuses[20] == 429
+    assert statuses[:100].count(429) == 0 and statuses[100] == 429
 
 
 @pytest.mark.ratelimit
@@ -343,14 +363,14 @@ def test_register_rate_limit_per_ip(fresh_backend):
     client = ApiClient(fresh_backend.url)
     statuses = [client.post("/api/register/participant", data={
         "full_name": "Rate Limit", "email": dbh.unique_email("rlreg"), "password": "weak", "role": "participant"
-    }).status_code for _ in range(21)]
+    }).status_code for _ in range(61)]
     client.close()
-    assert 429 not in statuses[:20] and statuses[20] == 429
+    assert 429 not in statuses[:60] and statuses[60] == 429
 
 
 @pytest.mark.ratelimit
 def test_global_api_rate_limit(fresh_backend):
-    """600 API requests per minute per IP (the event pages poll every 10 s)."""
+    """600 API requests per minute per IP for requests without a login."""
     # The server's own startup health check already made a few /api/test calls, so the
     # 429 comes at or just before request 600 of this loop.
     with httpx.Client(base_url=fresh_backend.url) as client:
@@ -360,3 +380,39 @@ def test_global_api_rate_limit(fresh_backend):
     assert 590 <= first_429 <= 600, first_429
     assert set(statuses[:first_429]) == {200}
     assert int(responses[first_429].headers["retry-after"]) > 0
+
+
+@pytest.mark.ratelimit
+def test_global_limit_counts_each_logged_in_user_separately(engine, fresh_backend):
+    """Logged-in users on the same IP (campus Wi-Fi) each get their own 600 requests/min."""
+    first, second = dbh.create_user(engine, "student"), dbh.create_user(engine, "student")
+    a = ApiClient(fresh_backend.url).login_as(first)
+    b = ApiClient(fresh_backend.url).login_as(second)
+    statuses = [a.get("/api/test").status_code for _ in range(601)]
+    assert 429 not in statuses[:600] and statuses[600] == 429    # user A used up their own limit
+    assert b.get("/api/student/profile").status_code == 200      # user B, same IP, is not affected
+    a.close(); b.close()
+
+
+def test_simultaneous_enrollment_respects_capacity_lock(engine, organizer_user, api_url):
+    """The event row is locked during enrollment (SELECT ... FOR UPDATE)."""
+    import threading
+    event = dbh.create_event(engine, organizer_user, capacity=2)
+    clients = [ApiClient(api_url).login_as(dbh.create_user(engine, "student")) for _ in range(6)]
+    for c in clients:
+        c.csrf_token()
+    results, barrier = [], threading.Barrier(len(clients))
+
+    def go(client):
+        barrier.wait()
+        results.append(client.post(f"/api/events/{event['id']}/enroll").status_code)
+
+    threads = [threading.Thread(target=go, args=(c,)) for c in clients]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    for c in clients:
+        c.close()
+    assert results.count(200) == 2
+    assert dbh.scalar(engine, "SELECT COUNT(*) FROM registrations WHERE event_id = :e", e=event["id"]) == 2

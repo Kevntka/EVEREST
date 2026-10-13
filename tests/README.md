@@ -4,6 +4,19 @@ Pytest suite for the EVEREST event registration system (Angular 21 frontend, Fas
 PostgreSQL backend). It tests the **real backend code** running in its own process against a
 **separate test database**, and drives the **real Angular app** in a browser with Playwright.
 
+## Turned off by default
+
+The suite is **deactivated**: every test is skipped and the load test exits, unless
+`EVEREST_TESTS_ENABLED=1` is set for that run:
+
+```bash
+set EVEREST_TESTS_ENABLED=1          # Windows cmd (PowerShell: $env:EVEREST_TESTS_ENABLED="1")
+tests/.venv/Scripts/python -m pytest tests
+```
+
+To turn it back on for good, remove the on/off switch at the top of `tests/conftest.py` and in
+`tests/performance/run_load_test.py`.
+
 ## Safety
 
 - Tests never use the database in `backend/.env` (`ers_db`). They use `ers_db_test` on the same
@@ -72,6 +85,18 @@ finishes it prints a table of every FAILED / ERROR test with the reason, and sav
 
 FAILED means the app didn't do what the test expects; ERROR means the test couldn't run
 (database, backend or frontend not available); XFAIL is a known issue from `REPORT.md`.
+
+## Screenshots for the QA Test Case Matrix
+
+`tests/e2e/test_zz_screenshots.py` runs each row of `tests/EVEREST_QA_Test_Case_Matrix.xlsx` in the
+real browser (Google's real reCAPTCHA widget with its test site key) and saves
+`tests/reports/screenshots/EVR_xxx.png`. Normal runs skip it. With `TEST_MAIL_SINK=1` the test backend
+sends real SMTP mail to a local catch-all server (`helpers/mailsink.py`, saved in
+`tests/reports/mail/*.eml`; nothing leaves the computer), so registration and password emails work:
+
+```bash
+TEST_MAIL_SINK=1 tests/.venv/Scripts/python -m pytest tests/e2e/test_zz_screenshots.py -m screenshots
+```
 
 ## Run with pytest directly
 

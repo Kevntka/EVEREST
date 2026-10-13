@@ -2,6 +2,7 @@
 -- PostgreSQL Database
 
 
+DROP TABLE IF EXISTS revoked_tokens CASCADE;
 DROP TABLE IF EXISTS attendees CASCADE;
 DROP TABLE IF EXISTS registrations CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
@@ -166,3 +167,9 @@ CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
 -- Grant permissions (adjust as needed)
 -- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO your_app_user;
 -- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO your_app_user;
+
+-- Signed-out login tokens (JWT id). Rows are deleted once the token would have expired.
+CREATE TABLE revoked_tokens (
+    jti VARCHAR(64) PRIMARY KEY,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
