@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: everest
+      POSTGRES_PASSWORD: everest_pw
+      POSTGRES_DB: ers_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Runs only on the first start (empty volume), so its DROP TABLEs never wipe data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "5433:5432"  # 5433 on the host: the local PostgreSQL already uses 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U everest -d ers_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      # Overrides the localhost DATABASE_URL in backend/.env
+      DATABASE_URL: postgresql://everest:everest_pw@db:5432/ers_db
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend/event-registration
+    ports:
+      - "4200:80"  # the frontend calls localhost:8000 and CORS allows localhost:4200, so keep both ports
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
