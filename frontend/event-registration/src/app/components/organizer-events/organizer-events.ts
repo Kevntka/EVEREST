@@ -36,7 +36,7 @@ import { SessionService } from '../../services/session.service';
 import { DisplayCasePipe } from '../../utils/display-case.pipe';
 import { autoRefresh } from '../../utils/auto-refresh';
 import { shrinkImage } from '../../utils/image-resize';
-import { formatTimeRange } from '../../utils/event-time';
+import { EventSchedule, formatTimeRange, minPickableDate, pastScheduleError } from '../../utils/event-time';
 import { coverInitial, coverColor } from '../../utils/cover-placeholder';
 import { ChangePasswordService } from '../../services/change-password.service';
 
@@ -100,6 +100,8 @@ export class OrganizerEvents implements OnInit {
   selectedStatus = '';
   showCreateModal = false;
   editingEventId: number | null = null;
+  /** Dates and end time the edited event had when the form opened (null when creating) */
+  private originalSchedule: EventSchedule | null = null;
   
   events: Event[] = [];
   currentPage = 1;
@@ -282,7 +284,20 @@ export class OrganizerEvents implements OnInit {
     this.resetForm();
   }
 
+  /** Earliest pickable dates: today, or a past date the edited event already has */
+  get minEventDate(): string {
+    return minPickableDate(this.originalSchedule?.date);
+  }
+  get minRegistrationStart(): string {
+    return minPickableDate(this.originalSchedule?.registrationStart);
+  }
+  get minRegistrationEnd(): string {
+    const min = minPickableDate(this.originalSchedule?.registrationEnd);
+    return this.newEvent.registrationStart > min ? this.newEvent.registrationStart : min;
+  }
+
   resetForm(): void {
+    this.originalSchedule = null;
     this.newEvent = {
       title: '',
       description: '',
@@ -381,6 +396,11 @@ export class OrganizerEvents implements OnInit {
       this.dialog.error('Check your input', 'Registration must end on or before the event date.');
       return;
     }
+    const pastError = pastScheduleError({ date, endTime, registrationStart, registrationEnd }, this.originalSchedule);
+    if (pastError) {
+      this.dialog.error('Check your input', pastError);
+      return;
+    }
 
     const formData = new FormData();
     formData.append('event_name', this.newEvent.title);
@@ -473,6 +493,8 @@ export class OrganizerEvents implements OnInit {
             department: evt.department || '',
             coverPhoto: null
           };
+          const { date, endTime, registrationStart, registrationEnd } = this.newEvent;
+          this.originalSchedule = { date, endTime, registrationStart, registrationEnd };
           this.editingEventId = event.id;
           this.showCreateModal = true;
         },
