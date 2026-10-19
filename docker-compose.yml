@@ -23,6 +23,9 @@ services:
     environment:
       # Overrides the localhost DATABASE_URL in backend/.env
       DATABASE_URL: postgresql://everest:everest_pw@db:5432/ers_db
+      # Containers run on UTC. Events open and auto-close by the server's local time,
+      # which must match the Philippine dates and times organizers enter.
+      TZ: Asia/Manila
     ports:
       - "8000:8000"
     depends_on:

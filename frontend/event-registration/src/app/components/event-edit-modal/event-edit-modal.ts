@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { DialogService } from '../../services/dialog.service';
 import { shrinkImage } from '../../utils/image-resize';
+import { EventSchedule, minPickableDate, pastScheduleError } from '../../utils/event-time';
 
 /**
  * Edit Event modal for the admin Dashboard. Loads the event, then saves it with
@@ -46,6 +47,21 @@ export class EventEditModal implements OnInit {
     coverPhoto: null as File | null
   };
 
+  /** Dates and end time the event had when the modal opened */
+  private originalSchedule: EventSchedule | null = null;
+
+  /** Earliest pickable dates: today, or a past date the event already has */
+  get minEventDate(): string {
+    return minPickableDate(this.originalSchedule?.date);
+  }
+  get minRegistrationStart(): string {
+    return minPickableDate(this.originalSchedule?.registrationStart);
+  }
+  get minRegistrationEnd(): string {
+    const min = minPickableDate(this.originalSchedule?.registrationEnd);
+    return this.form.registrationStart > min ? this.form.registrationStart : min;
+  }
+
   /** Cover photo types, same as the backend's image check */
   private readonly coverTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   /** Photos up to 25 MB (e.g. 4K) can be picked; they are shrunk below the backend's 5 MB */
@@ -71,6 +87,8 @@ export class EventEditModal implements OnInit {
             department: evt.department || '',
             coverPhoto: null
           };
+          const { date, endTime, registrationStart, registrationEnd } = this.form;
+          this.originalSchedule = { date, endTime, registrationStart, registrationEnd };
           this.loaded = true;
         },
         error: (error) => {
@@ -154,6 +172,11 @@ export class EventEditModal implements OnInit {
     }
     if (date && registrationEnd > date) {
       this.dialog.error('Check your input', 'Registration must end on or before the event date.');
+      return;
+    }
+    const pastError = pastScheduleError({ date, endTime, registrationStart, registrationEnd }, this.originalSchedule);
+    if (pastError) {
+      this.dialog.error('Check your input', pastError);
       return;
     }
 

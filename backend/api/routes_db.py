@@ -724,6 +724,35 @@ def _validate_event_times(event_date: str, event_time: str, event_end_time: Opti
     return end or start
 
 
+def _reject_past_schedule(ends_at, registration_start: Optional[date], registration_end: Optional[date],
+                          before: Optional[dict] = None):
+    """
+    A new event must end in the future; otherwise it would be created already closed.
+    Its registration dates can't be in the past either. When editing, `before` holds the
+    event's stored values and only the parts that changed are checked, so an event that
+    already happened can still be edited (e.g. to fix a typo). Same rules as the
+    frontend's pastScheduleError().
+    """
+    from datetime import datetime
+    now = datetime.now()
+
+    def changed(key, value):
+        return before is None or before[key] != value
+
+    if changed("ends_at", ends_at) and ends_at <= now:
+        raise HTTPException(
+            status_code=400,
+            detail="This event's date and end time have already passed. Please choose a later date or time."
+        )
+    for key, value, label in (("registration_start", registration_start, "start"),
+                              ("registration_end", registration_end, "end")):
+        if value and changed(key, value) and value < now.date():
+            raise HTTPException(
+                status_code=400,
+                detail=f"The registration {label} date has already passed. Please choose today or a later date."
+            )
+
+
 def _validate_registration_period(registration_start: Optional[str], registration_end: Optional[str], event_date: str):
     """
     Registration start/end dates (YYYY-MM-DD, each optional): start <= end <= event date.
@@ -813,8 +842,9 @@ async def create_event(
     if not organizer_role:
         raise HTTPException(status_code=400, detail="Organizer not found")
 
-    _validate_event_times(event_date, event_time, event_end_time)
+    ends_at = _validate_event_times(event_date, event_time, event_end_time)
     registration_start, registration_end = _validate_registration_period(registration_start, registration_end, event_date)
+    _reject_past_schedule(ends_at, registration_start, registration_end)
 
     # Insert into database (raw SQL for now since schema is complex)
     from sqlalchemy import text
@@ -1713,6 +1743,16 @@ async def update_event(
     fields = _validate_event_text(event_name, event_description, venue, capacity, department, about_event)
     ends_at = _validate_event_times(event_date, event_time, event_end_time)
     registration_start, registration_end = _validate_registration_period(registration_start, registration_end, event_date)
+
+    stored = db.execute(text("""
+        SELECT event_date, COALESCE(event_end_time, event_time) AS end_time, registration_start, registration_end
+        FROM events WHERE id = :id
+    """), {"id": event_id}).first()
+    _reject_past_schedule(ends_at, registration_start, registration_end, before={
+        "ends_at": datetime.combine(stored.event_date, stored.end_time) if stored.event_date and stored.end_time else None,
+        "registration_start": stored.registration_start,
+        "registration_end": stored.registration_end,
+    })
 
     enrolled = db.execute(
         text("SELECT COUNT(*) FROM registrations WHERE event_id = :id"), {"id": event_id}

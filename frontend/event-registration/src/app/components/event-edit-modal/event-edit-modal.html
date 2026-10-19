@@ -48,6 +48,7 @@
               [(ngModel)]="form.registrationStart"
               name="registrationStart"
               aria-label="Registration start date"
+              [min]="minRegistrationStart"
               [max]="form.registrationEnd || form.date"
               required
             />
@@ -58,7 +59,7 @@
               [(ngModel)]="form.registrationEnd"
               name="registrationEnd"
               aria-label="Registration end date"
-              [min]="form.registrationStart"
+              [min]="minRegistrationEnd"
               [max]="form.date"
               required
             />
@@ -98,6 +99,7 @@
             class="form-input"
             [(ngModel)]="form.date"
             name="date"
+            [min]="minEventDate"
             required
           />
         </div>
