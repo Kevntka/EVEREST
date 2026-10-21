@@ -142,11 +142,12 @@ def test_schedule_validation(organizer_client, overrides, detail):
     assert response.json()["detail"] == detail
 
 
-def test_event_created_for_past_time_starts_closed(organizer_client):
+def test_event_in_the_past_is_rejected(organizer_client):
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    event = organizer_client.post("/api/events", data=event_form(
-        event_date=yesterday, registration_start=yesterday, registration_end=yesterday)).json()["event"]
-    assert organizer_client.get(f"/api/events/{event['id']}").json()["event"]["status"] == "closed"
+    response = organizer_client.post("/api/events", data=event_form(
+        event_date=yesterday, registration_start=yesterday, registration_end=yesterday))
+    assert response.status_code == 400
+    assert "already passed" in response.json()["detail"]
 
 
 # ---------------------------------------------------------------- cancelling

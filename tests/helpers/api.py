@@ -89,7 +89,7 @@ def event_form(**overrides) -> dict:
         "capacity": "5",
         "department": "Information Technology",
         "about_event": "About text",
-        "registration_start": (date.today() - timedelta(days=1)).isoformat(),
+        "registration_start": date.today().isoformat(),
         "registration_end": event_day.isoformat(),
     }
     data.update(overrides)
