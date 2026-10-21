@@ -1,0 +1,152 @@
+# EVEREST CI: runs the backend tests, checks the Angular build, and verifies that both
+# Docker images build. It does NOT deploy anything (the app only runs on localhost).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button on the Actions tab
+
+# Read-only access to the repository; the workflow never writes to GitHub.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend tests (Pytest + PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The suite is switched off by default (tests/conftest.py); turn it on for CI only.
+      EVEREST_TESTS_ENABLED: "1"
+      # Same clock as docker-compose.yml: events open and close by the server's local time.
+      TZ: Asia/Manila
+      PYTHONIOENCODING: utf-8
+
+    # A throwaway PostgreSQL that exists only during this job. It has no real data;
+    # the tests create and wipe their own database (ers_db_test) inside it.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_only_password
+          TZ: Asia/Manila
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            tests/requirements.txt
+
+      # The tests start the backend with backend/venv/bin/python (tests/helpers/config.py)
+      - name: Install backend dependencies into backend/venv
+        run: |
+          python -m venv backend/venv
+          backend/venv/bin/python -m pip install --upgrade pip
+          backend/venv/bin/python -m pip install -r backend/requirements.txt
+
+      - name: Install test dependencies
+        run: python -m pip install -r tests/requirements.txt
+
+      # tests/helpers/config.py reads backend/.env to find the PostgreSQL server and the
+      # name of the database it must never touch. This file exists only on the CI machine
+      # (it is never committed) and points at the throwaway container above. The tests
+      # use <name>_test (ers_db_test) and give their backend its own random JWT secret.
+      - name: Write a CI-only backend/.env
+        run: |
+          {
+            echo "DATABASE_URL=postgresql://ci_user:ci_only_password@localhost:5432/ers_db"
+            echo "JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+            echo "EMAIL_ENABLED=false"
+          } > backend/.env
+
+      # The browser tests (tests/e2e) need the Angular dev server and Chromium; they are
+      # left out of CI for now.
+      - name: Run Pytest
+        run: python -m pytest tests --ignore=tests/e2e
+
+      - name: Upload test reports
+        if: always() # also when tests fail, so you can see why
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-reports
+          path: |
+            tests/reports/report.html
+            tests/reports/junit.xml
+            tests/reports/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  frontend:
+    name: Frontend tests and build (Angular)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend/event-registration
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/event-registration/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests (Vitest)
+        run: npx ng test --watch=false
+
+      - name: Production build
+        run: npx ng build
+
+  docker-build:
+    name: Docker image builds (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend-tests, frontend] # only after the tests and build pass
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      # Same build contexts as docker-compose.yml. The images stay on this temporary
+      # machine and are deleted with it; nothing is pushed to a registry.
+      - name: Build backend image
+        run: docker build -t everest-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t everest-frontend:ci ./frontend/event-registration
+
+      - name: List built images
+        run: docker image ls "everest-*"
+
+  # Deployment is intentionally not set up: EVEREST currently runs on localhost only.
