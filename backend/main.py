@@ -1,3 +1,20 @@
+if __name__ == "__main__":
+    # `python main.py` started with another Python (e.g. the tests' .venv, which has no
+    # FastAPI)? Run this file again with the backend's own venv instead of failing.
+    import importlib.util
+    import subprocess
+    import sys
+    from pathlib import Path as _Path
+
+    _here = _Path(__file__).resolve().parent
+    _venv_python = next((p for p in (_here / "venv" / "Scripts" / "python.exe", _here / "venv" / "bin" / "python")
+                         if p.exists()), None)
+    if importlib.util.find_spec("fastapi") is None and _venv_python \
+            and _Path(sys.executable).resolve() != _venv_python.resolve():
+        print(f"FastAPI isn't installed in this Python ({sys.executable}).\n"
+              f"Restarting with the backend's venv: {_venv_python}\n")
+        sys.exit(subprocess.call([str(_venv_python), str(_here / "main.py"), *sys.argv[1:]], cwd=_here))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
