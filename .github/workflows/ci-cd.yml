@@ -1,7 +1,7 @@
 # EVEREST CI: runs the backend tests, checks the Angular build, and verifies that both
 # Docker images build. It does NOT deploy anything (the app only runs on localhost).
 
-name: CI
+name: GitHub workflow
 
 on:
   push:
